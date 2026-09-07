@@ -1,0 +1,46 @@
+# ──────────────────────────────────────────────────────────
+# proton-drive-backup — user configuration
+#
+# Copy this file to:
+#   ~/.config/proton-drive-backup/proton-drive-backup.cfg
+# and adjust the values to your system.
+#
+# NOTE: This file is sourced as Bash. Review files obtained
+# from third parties before using them.
+#
+# Copyright (c) 2026 RML Tec Dev
+# (not affiliated with Proton AG)
+# ──────────────────────────────────────────────────────────
+
+# Base directory for relative SOURCE_DIRS entries.
+# Default: $HOME. Adapt for sources on a network mount:
+SOURCE_BASE="$HOME"
+
+# Local source directories. Relative paths resolve against
+# SOURCE_BASE (= $HOME); absolute paths are used as-is.
+# Uncomment "Projects" if you track a developer or creator workspace.
+SOURCE_DIRS=(
+    "Documents"
+    "Music"
+    "Pictures"
+#    "Projects"
+    "Templates"
+    "Videos"
+)
+
+# Remote destination folder inside Proton Drive.
+REMOTE_BASE_PATH="/my-files/backup"
+
+# Delete strategy for files removed locally:
+#   "trash"   (recoverable from Proton Drive trash)  — recommended
+#   "delete"  (permanently deleted from Proton Drive)
+DELETE_MODE="trash"
+
+# Upload conflict strategy: "replace" (overwrite remote) or "skip".
+UPLOAD_CONFLICT_STRATEGY="replace"
+
+# Cron interval in minutes (--schedule).
+CRON_INTERVAL_MINUTES=300
+
+# Number of archived runs kept in the log directory.
+KEEP_LOG_RUNS=10

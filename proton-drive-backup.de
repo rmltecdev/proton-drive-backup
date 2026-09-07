@@ -1,0 +1,206 @@
+# ───────────────────────────────────────────────────────
+# proton-drive-backup — German localization
+#
+# Place in same directory as the proton-drive-backup script.
+#
+# NOTE: This file is sourced as Bash. Review files obtained
+#       from third parties before using them.
+#
+# Copyright (c) 2026 RML Tec Dev
+# (not affiliated with Proton AG)
+# ───────────────────────────────────────────────────────
+
+# ───── Status labels (indicator words) ─────────────────
+MSG[status_preparing]="Daten werden vorbereitet..."
+
+# ───── Initialization and configuration ────────────────
+PAD_CONFIG_WIDTH="33"
+MSG[info_initialized]="Proton Drive Backup initialisiert."
+MSG[info_config_header]="Backup Konfiguration:"
+MSG[info_conflict_strategy]="Konfliktstrategie"
+MSG[info_delete_mode]="Löschmodus"
+MSG[info_dry_run]="Testlauf"
+MSG[info_reset_db]="Prüfsummendatenbank zurücksetzen"
+MSG[quiet_notice]="Datensicherung läuft im Hintergrund. Verfolgen Sie den Fortschritt mit:"
+MSG[fail_no_source_dirs]="Keine Quellverzeichnisse konfiguriert."
+
+# ───── Dependencies and session ────────────────────────
+MSG[fail_dep_missing]="Erforderliche Abhängigkeiten nicht gefunden:"
+MSG[info_deps_ok]="Alle Abhängigkeiten erfüllt."
+MSG[info_session_check]="Überprüfung der Sitzungsauthentifizierung..."
+MSG[info_session_valid]="Sitzung ist gültig."
+MSG[info_auth_required]="Authentifizierung erforderlich."
+MSG[warn_dry_run_auth]="Authentifizierung im Testlaufmodus gescheitert. Datensicherung übersprungen."
+MSG[info_login_instruction]="Bitte ausführen: "
+MSG[info_login_success]="Anmeldung erfolgreich."
+MSG[fail_login_failed]="Authentifizierung gescheitert."
+
+# ───── Remote directory handling ───────────────────────
+MSG[info_dry_create_folder]="Würde Ordner erstellen:"
+MSG[fail_remote_create]="Remote-Ordner kann nicht erstellt werden:"
+
+# ───── Database build and load ─────────────────────────
+MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank..."
+MSG[warn_skip_missing_dir]="Überspringe fehlendes Verzeichnis:"
+MSG[warn_file_unreadable]="Datei kann nicht gelesen werden:"
+MSG[warn_db_empty]="Keine Dateien in Quellverzeichnissen gefunden; prüfen Sie die Konfiguration in:"
+MSG[info_no_db_found]="Keine Prüfsummendatenbank gefunden; erstelle neu..."
+MSG[info_lookup_build]="Erstelle Änderungstabelle..."
+MSG[warn_rebuild_db]="Erstelle Prüfsummendatenbank neu..."
+MSG[label_scan]="Scannen"
+MSG[label_load]="Laden"
+MSG[label_process]="Verarbeiten"
+MSG[label_delete]="Löschen"
+
+# ───── Upload phase ────────────────────────────────────
+MSG[info_compare_upload]="Vergleich lokaler Dateien mit vorherigem Sicherungsstand..."
+MSG[info_no_local_files]="Keine lokalen Dateien zu verarbeiten."
+MSG[info_uploaded]="Verarbeitet:"
+
+# ───── Delete phase ────────────────────────────────────
+MSG[info_compare_delete]="Suche nach lokal gelöschten Dateien..."
+MSG[info_no_orphans]="Keine verwaisten Dateien zum Löschen."
+MSG[mode_verb_trash]="Wiederherstellbar gelöscht      "
+MSG[mode_verb_delete]="Permanent gelöscht              "
+
+# ───── Lock file management ────────────────────────────
+MSG[warn_lock_stale]="Entferne veraltete Sperrdate..."
+
+# ───── Terminal resize (graceful degradation) ──────────
+MSG[warn_resize_disabled]="Terminalgröße geändert; Fortschrittsanzeige deaktiviert."
+MSG[warn_resize_continuing]="Datensicherung im Hintergrundmodus fortgesetzt. Verfolgen Sie den Fortschritt mit:"
+
+# ───── Logging ─────────────────────────────────────────
+MSG[info_no_log_found]="Kein Protokoll gefunden in:"
+MSG[info_log_first_run]="Die Protokolldatei wird beim ersten Backup-Lauf erstellt."
+MSG[info_log_opening]="Öffne Protokoll:"
+MSG[info_log_archive_opening]="Archiviertes Protokoll wird geöffnet von:"
+MSG[info_log_follow_hint]="Drücken Sie Strg+C + Q zum Beenden."
+MSG[warn_archive_failed]="Protokolldateien konnten nicht archiviert werden; Originaldateien bleiben erhalten."
+
+# ───── Cron management ─────────────────────────────────
+MSG[cron_manager]="Cronjob Manager"
+MSG[cron_scheduled]="Cronjob erfolgreich geplant:"
+MSG[cron_already]="Cronjob bereits geplant für:"
+MSG[cron_removed]="Cronjob entfernt."
+MSG[cron_none_found]="Kein Cronjob gefunden für:"
+MSG[cron_existing]="Vorhandener Eintrag:"
+MSG[cron_logs_written]="Protokolle werden geschrieben in:"
+
+# ───── Unknown options ─────────────────────────────────
+MSG[warn_unknown_option]="Unbekannte Option:"
+
+# ───── Version display (also used by show_version) ─────
+PAD_VERSION_WIDTH="23"  # Inflate padding to align with longest string
+MSG[info_version]="Skriptversion"
+MSG[info_build_date]="Skripterstellungsdatum"
+MSG[info_path]="Skriptpfad"
+MSG[info_cli_version]="Lade CLI-Informationen..."
+MSG[info_cli_not_installed]="Proton Drive CLI nicht installiert."
+
+# ───── Print Summary ───────────────────────────────────
+PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string
+MSG[sum_uploaded]="Hochgeladen (neu oder geändert) "
+MSG[sum_skipped]="Übersprungen (unverändert)      "
+MSG[sum_errors]="Fehler"
+MSG[sum_warnings]="Warnungen"
+MSG[sum_completed_ok]="Datensicherung vollständig"
+MSG[sum_completed_errors]="Datensicherung mit Fehlern"
+
+# ───── Man-page Style Help ─────────────────────────────
+read -r -d '' 'MSG[help_text]' <<'EOF'
+NAME
+    Proton Drive Backup
+
+BESCHREIBUNG
+    Unidirektionale Datensicherung für lokale Verzeichnisse und Dateien 
+    auf Proton Drive, inklusive Upload neuer/geänderter Dateien und 
+    Löschen verwaister Remote-Dateien. Das lokale System ist die einzige
+    Datenquelle; es werden keine lokalen Löschvorgänge durchgeführt.
+    Die Änderungserkennung basiert auf dem Vergleich der lokalen MD5-
+    Prüfsumme mit einer persistenten Datenbank. Es werden keine Remote-
+    Hash-Daten benötigt.
+    Dies ist ein inoffizielles Community-Tool. Die Proton AG ist nicht
+    verantwortlich für dessen Funktionalität oder Wartung. Proton Drive
+    ist eine Marke der Proton AG.
+
+REQUIREMENTS
+    - proton-drive CLI v0.4.6 oder höher
+    - jq (JSON-Verarbeitung)
+    - md5sum (Prüfsummen-Dienstprogramm)
+    - bash Version 4.0 oder höher
+    - tar
+
+USAGE
+    %s [OPTIONS]
+
+    OPTIONS
+        --dry-run       Testlauf, es werden keine Änderungen durchgeführt.
+        --help          Diese Hilfe anzeigen und beenden.
+        --log           Laufzeitprotokoll öffnen und verfolgen; 
+                        mit Strg+C + Q beenden.
+        --quiet         Automatische Datensicherung (für Cronjobs).
+                        Konsolenausgabe: nur Fehler und Zusammenfassung.
+        --reset-db      Prüfsummendatenbank zurücksetzen und neu erstellen
+        --schedule      Zeitgesteuerte Ausführung der Datensicherung
+                        planen (alle %s Minuten).
+        --unschedule    Cronjob entfernen.
+        --verbose       Führe Datensicherung mit Fortschrittsanzeige aus.
+        --version       Versionsinformationen anzeigen.
+
+LOGGING
+    Protokolldatei  %s
+    Rotation        Interne, laufbasierte Protokolle werden mit dem 
+                    nächsten Lauf archiviert.
+                    %s rotierte Protokolle aufbewahrt,
+                    älteste gelöscht).
+
+LÖSCHSTRATEGIE
+    Aktueller Modus  %s
+    Optionen         "trash" (wiederherstellbar) oder
+                     "delete" (permanent).
+    Konfiguration über Variable DELETE_MODE in der Konfigurationsdatei.
+
+HAFTUNGSAUSSCHLUSS
+    Dieses Skript wird ohne jegliche Gewährleistung bereitgestellt.
+    Nutzung auf eigene Gefahr. Lizenziert unter der MIT-Lizenz.
+
+AUTOR
+    Copyright © 2026 RML Tec Dev
+    (nicht verbunden mit Proton AG)
+    rmltecdev@pm.me
+EOF
+
+MSG[help_close]="Hilfe geschlossen."
+MSG[help_open]="Öffne Hilfe..."
+
+# ───── Composite templates (printf, %s placeholders) ───
+MSG[tmpl_db_built]="Datenbank erstellt: %s Dateien, %s gesamt."
+MSG[tmpl_prev_db_loaded]="Vorherige Datenbank (%s Einträge) zur Änderungsermittlung geladen."
+MSG[tmpl_upload_phase]="Upload-Phase: %s hochgeladen, %s übersprungen."
+MSG[tmpl_delete_phase]="Löschphase: %s %s."
+MSG[tmpl_lock_running]="Eine andere Instanz läuft bereits. (PID: %s)."
+MSG[tmpl_cron_interval]="Datensicherung wird alle %s Minuten im stillen Modus ausgeführt."
+MSG[tmpl_usage_hint]="          Führen Sie '%s --help' aus, um verfügbare Optionen anzuzeigen."
+MSG[tmpl_menu_invoke]="Rufen Sie %s mit einer dieser Optionen auf:"
+
+# ───── Interactive menu ────────────────────────────────
+PAD_MENU_WIDTH="22"  # longest: "Script", "Database"… adjust to language
+MSG[menu_status]="Status"
+MSG[menu_cron_label]="Cronjob geplant"
+MSG[menu_db_label]="Datenbankeinträge     "
+MSG[menu_files_tracked]="Dateien überwacht"
+MSG[menu_logsize_label]="Protokolldateigröße   "
+MSG[menu_paths]="Pfade"
+MSG[menu_script]="Skript"
+MSG[menu_database]="Datenbank"
+MSG[menu_logdir]="Protokollverzeichnis"
+MSG[opt_dry_run]="Zeige Änderungen; keine Aktion ausgeführt"
+MSG[opt_help]="Beschreibung, Nutzung und Lizenz anzeigen"
+MSG[opt_log]="Laufzeitprotokoll öffnen und verfolgen; mit Strg+C + Q beenden"
+MSG[opt_quiet]="Automatische Datensicherung (für Cronjobs)"
+MSG[opt_reset_db]="Prüfsummendatenbank zurücksetzen und neu erstellen"
+MSG[opt_schedule]="Zeitgesteuerte Ausführung der Datensicherung planen."
+MSG[opt_unschedule]="Cronjob entfernen"
+MSG[opt_verbose]="Führe Datensicherung mit Fortschrittsanzeige aus"
+MSG[opt_version]="Versionsinformationen anzeigen"

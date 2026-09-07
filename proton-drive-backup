@@ -1,0 +1,1490 @@
+#!/usr/bin/env bash
+
+# ──────────────────────────────────────────────────────
+#
+# Proton Drive Backup
+#
+# ──────────────────────────────────────────────────────
+#
+# Purpose   Backup tool for Proton Drive CLI
+#           This is an unofficial community tool. Proton
+#           AG is not responsible for its functionality
+#           or maintenance. Proton Drive is a trademark
+#           of Proton AG.
+#
+# Author    Copyright (c) 2026 RML Tec Dev
+#           (not affiliated with Proton AG)
+#
+#           Contributions and feedback are welcome via
+#           rmltecdev@pm.me
+#
+# License   Licensed under the MIT License
+#
+# ──────────────────────────────────────────────────────
+#
+# Localization  Ensure language files are in same
+#               directory as the script; languages 
+#               currently supported:
+#               [EN] English, generic (default fallback)
+#
+# ──────────────────────────────────────────────────────
+
+
+
+# ───── Error handling ─────────────────────────────────
+
+set -uo pipefail
+
+# shellcheck disable=SC2059
+# MSG[tmpl_*] keys are locale templates BY DESIGN: %s placeholders
+# are part of the localization contract (see MESSAGES.md). Locales
+# must never contain literal % characters — verified by smoke test.
+
+# shellcheck disable=SC2012
+# names are self-generated timestamps, no spaces possible
+
+
+
+# ───── Variables declaration ──────────────────────────
+
+APP_NAME="≡ Proton Drive Backup ≡"
+
+VERSION="1.0.0"
+BUILD_DATE="2026-09-07"
+
+export PATH="$HOME/bin:$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Ensure D-Bus session is accessible (needed for proton-drive credential access in cron)
+export DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-unix:path=/run/user/$(id -u)/bus}"
+
+SCRIPT_NAME="$(basename "$0")"
+SCRIPT_DIR="$(dirname "$(realpath "$0")")"
+SCRIPT_PATH="$(realpath "$0")"
+PREVIOUS_DB_PATH="/dev/null"    # Previous DB state (path to file, NOT
+                                # content — avoids ARG_MAX with 100k+
+                                # files)
+# Upload flags
+UPLOAD_SKIP_THUMBNAILS="--skip-thumbnails"
+
+# Derived paths
+REMOTE_BASE_PATH="/my-files/backup"
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
+CONFIG_FILE="${CONFIG_DIR}/${SCRIPT_NAME}.cfg"
+CONFIG_FILE="${SCRIPT_NAME}.cfg"    # REMOVE BEFORE FLIGHT
+LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/$SCRIPT_NAME"
+RUNTIME_LOG="$LOG_DIR/runtime.log"
+TRANSFER_LOG="$LOG_DIR/transfer.log"
+TMP_ERR_FILE="$CONFIG_DIR/.last_error"
+LOCK_FILE="$CONFIG_DIR/$SCRIPT_NAME.lock"
+CHECKSUM_DB="$CONFIG_DIR/$SCRIPT_NAME.md5"
+
+# Runtime flags
+VERBOSE=false
+QUIET_MODE=false
+DRY_RUN=false
+RESET_DB=false
+RUN_BACKUP=false
+SHOW_HELP=false
+SHOW_VERSION=false
+SHOW_LOG=false
+SCHEDULE_CRON=false
+UNSCHEDULE_CRON=false
+
+# Global counters (for summary)
+UPLOAD_COUNT=0
+SKIP_COUNT=0
+UPLOAD_BYTES=0
+DELETE_COUNT=0
+ERROR_COUNT=0
+WARNING_COUNT=0
+
+# Track created remote dirs
+declare -gA CREATED_REMOTE_DIRS=()
+
+# Status Indicators
+INDICATOR_FAIL="\033[31m■ "
+INDICATOR_WARN="\033[93m▲ "
+INDICATOR_PASS="\033[32m● "
+INDICATOR_INFO="\033[1;34m● "
+INDICATOR_PROC="\033[1;5;32m▶ "
+
+# Formatting
+FORMATTING_RESET="\033[0m"
+FORMATTING_BOLD="\033[1m"
+FORMATTING_HEADER="\033[1;34m"
+
+
+
+# ───── Low-Level Logging (file only) ──────────────────
+
+log() {
+    local message
+
+    message="${1:-}"
+
+    [[ -d "$LOG_DIR" ]] || mkdir -p "$LOG_DIR"
+    printf "[%s] [%s, v%s] %s\n" \
+        "$(date '+%Y-%m-%d %H:%M:%S')" "$SCRIPT_NAME" "$VERSION" "$message" \
+        >> "$RUNTIME_LOG"
+}
+
+
+
+# ───── Display-width-correct padding ─────────────────
+# bash's printf counts BYTES for %-*s field widths; UTF-8
+# multibyte glyphs (ä ö ü ß) therefore shift columns left
+# (2 bytes = 1 glyph). ${#var} counts GLYPHS — we measure
+# ourselves and let printf print only ASCII spaces.
+pad_to() {
+    local text="$1" width="$2" n
+    n=$(( width - ${#text} ))
+    (( n < 0 )) && n=0
+    printf "%s" "$text"
+    printf "%*s" "$n" ""
+}
+
+
+
+# ───── Phase-Level Message Functions ──────────────────
+# Always write to log file. Console output controlled by QUIET_MODE.
+
+info() {
+    log "[INFO] ${1:-}"
+    if [[ "$QUIET_MODE" != "true" ]]; then
+        echo -e "${INDICATOR_INFO}Info${FORMATTING_RESET} ${1:-}"
+    fi
+}
+
+notice() {
+    log "[NOTICE] ${1:-}"
+    echo -e "${INDICATOR_INFO}Note${FORMATTING_RESET} ${1:-}"
+}
+
+warn() {
+    [[ -d "$LOG_DIR" ]] && log "[WARN] ${1:-}"
+    echo -e "${INDICATOR_WARN}Warning${FORMATTING_RESET} ${1:-}" >&2
+}
+
+fail() {
+    log "[ERROR] ${1:-}"
+    echo -e "${INDICATOR_FAIL}Error${FORMATTING_RESET} ${1:-}" >&2
+}
+
+success() {
+    log "[SUCCESS] ${1:-}"
+    if [[ "$QUIET_MODE" != "true" ]]; then
+        echo -e "${INDICATOR_PASS}Success${FORMATTING_RESET} ${1:-}"
+    fi
+}
+
+detail_info() {
+    log "[INFO] ${1:-}"
+}
+
+detail_success() {
+    log "[SUCCESS] ${1:-}"
+}
+
+detail_warn() {
+    log "[WARN] ${1:-}"
+}
+
+detail_fail() {
+    log "[ERROR] ${1:-}"
+}
+
+
+
+# ───── Show Header ────────────────────────────────────
+
+show_header() {
+    printf "\n%b%b%b\n" "${FORMATTING_HEADER}" "$APP_NAME" "${FORMATTING_RESET}\n"
+}
+
+
+
+# ───── Localization ───────────────────────────────────
+
+declare -A MSG
+
+# Default to en if LANG is unset (cron environment)
+SYSTEM_LANG="${LANG:-en}"
+SYSTEM_LANG="${SYSTEM_LANG:0:2}"
+[[ -z "$SYSTEM_LANG" ]] && SYSTEM_LANG="en"
+
+# shellcheck disable=SC2034
+LOCALE_FILE="${SCRIPT_DIR}/${SCRIPT_NAME}.${SYSTEM_LANG}"
+FALLBACK_FILE="${SCRIPT_DIR}/${SCRIPT_NAME}.en"
+
+load_locale() {
+    local target_file
+    target_file="$1"
+    if [[ ! -f "$target_file" ]]; then
+        show_header
+        printf "\033[31m■ Localization error\033[0m\n" >&2
+        printf "  Missing fallback file %s.\n" "$target_file" >&2
+        printf "  Ensure language files are in same directory as script.\n" >&2
+        exit 1
+    fi
+    # shellcheck disable=SC1090
+    source "$target_file"
+    log "[INFO] Loaded localization from $target_file"
+}
+
+
+
+# ───── Load User Configuration ───────────────────────────────
+# User decisions live in an external config file (XDG), never in
+# the script itself — updates can never overwrite user settings.
+# Same abort contract as load_locale(): a missing file stops every
+# operating mode with a clear message.
+
+load_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        show_header
+        printf "\033[31m■ Configuration error\033[0m\n" >&2
+        printf "  Missing configuration file: %s\n" "$CONFIG_FILE" >&2
+        printf "  Copy the shipped example and adjust it to your system's needs:\n" >&2
+        printf "  cp %s/%s.cfg.example %s\n" "$SCRIPT_DIR" "$SCRIPT_NAME" "$CONFIG_FILE" >&2
+        exit 1
+    fi
+
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+    log "[INFO] Loaded configuration from $CONFIG_FILE"
+}
+
+
+
+# ───── Show Menu (no arguments invoked) ───────────────
+
+is_cron_scheduled() {
+    crontab -l 2>/dev/null | grep -q "$SCRIPT_PATH"
+}
+
+show_menu() {
+    local cron_status db_files log_size
+
+    if is_cron_scheduled; then
+        cron_status="${INDICATOR_PASS}Yes${FORMATTING_RESET}"
+    else
+        cron_status="${INDICATOR_FAIL}No${FORMATTING_RESET}"
+    fi
+
+    db_files=0
+
+    if [[ -f "$CHECKSUM_DB" ]]; then
+        db_files=$(jq '.entries | length' "$CHECKSUM_DB" 2>/dev/null) || db_files=0
+    fi
+
+    log_size="0 KB"
+
+    if [[ -f "$RUNTIME_LOG" ]]; then
+
+        local raw_size
+
+        raw_size=$(stat -c%s "$RUNTIME_LOG" 2>/dev/null) || raw_size=0
+
+        if [[ "$raw_size" -ge 1048576 ]]; then
+            log_size="$(awk "BEGIN {printf \"%.1f\", $raw_size/1048576}") MB"
+        else
+            log_size="$(awk "BEGIN {printf \"%.0f\", $raw_size/1024}") KB"
+        fi
+    fi
+
+    show_header
+
+    # shellcheck disable=SC2059
+    printf "${MSG[menu_status]}\n"
+    printf "├ %-*s %b\n" "$PAD_MENU_WIDTH" "${MSG[menu_cron_label]}" "$cron_status"
+    printf "├ %-*s %s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_db_label]}" "$db_files" "${MSG[menu_files_tracked]}"
+    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "${MSG[menu_logsize_label]}" "$log_size"
+
+    # shellcheck disable=SC2059
+    printf "${MSG[tmpl_menu_invoke]}\n" "$SCRIPT_NAME"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--dry-run" "${MSG[opt_dry_run]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--help" "${MSG[opt_help]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--log" "${MSG[opt_log]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--quiet" "${MSG[opt_quiet]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--reset-db" "${MSG[opt_reset_db]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--schedule" "${MSG[opt_schedule]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--unschedule" "${MSG[opt_unschedule]}"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--verbose" "${MSG[opt_verbose]}"
+    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "--version" "${MSG[opt_version]}"
+
+    # shellcheck disable=SC2059
+    printf "${MSG[menu_paths]}\n"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_script]}" "$SCRIPT_PATH"
+    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_database]}" "$CHECKSUM_DB"
+    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "${MSG[menu_logdir]}" "$RUNTIME_LOG"
+}
+
+
+
+# ───── Man Page Style Help Viewer ─────────────────────────────────────
+
+show_help() {
+   show_header
+   echo "${MSG[help_open]}" 
+    log "● Opening help..."
+    # shellcheck disable=SC2059
+    # tmpl-style key: help body is a locale template by design (MESSAGES.md)
+    printf "${MSG[help_text]}" "$SCRIPT_NAME" "$CRON_INTERVAL_MINUTES" \
+        "$RUNTIME_LOG" "$KEEP_LOG_RUNS" "$DELETE_MODE" | less
+    echo "${MSG[help_close]}"
+    log "● Help closed."
+    exit 0
+}
+
+
+
+# ───── Show Version ───────────────────────────────────
+
+show_version() {
+    show_header
+    printf "  %-*s %s\n" "$PAD_VERSION_WIDTH" "${MSG[info_version]}" "$VERSION"
+    printf "  %-*s %s\n" "$PAD_VERSION_WIDTH" "${MSG[info_build_date]}" "$BUILD_DATE"
+    printf "  %-*s %s\n\n" "$PAD_VERSION_WIDTH" "${MSG[info_path]}" "$SCRIPT_PATH"
+    printf "  %-*s \n" "$PAD_VERSION_WIDTH" "${MSG[info_cli_version]}"
+
+    if command -v proton-drive &>/dev/null; then
+        while IFS= read -r line; do
+            printf "  %s\n" "$line"
+        done < <(proton-drive version 2>&1)
+    else
+        printf "  %s\n" "${MSG[info_cli_not_installed]}"
+    fi
+
+    log "Version information displayed."
+    exit 0
+}
+
+
+
+# ───── Show Log (tail -f with less) ───────────────────
+
+show_log() {
+    show_header
+    local newest_archive
+
+    echo "${MSG[info_log_follow_hint]}"
+    echo ""
+
+    # Prefer the stable plain log (current or just-finished run)
+    if [[ -f "$RUNTIME_LOG" ]]; then
+        echo "${MSG[info_log_opening]} $RUNTIME_LOG"
+        less +F "$RUNTIME_LOG" 2>/dev/null || tail -f "$RUNTIME_LOG"
+    elif compgen -G "$LOG_DIR/*.tar.gz" > /dev/null; then
+
+        # shellcheck disable=SC2012
+        newest_archive=$(ls -1t "$LOG_DIR"/*.tar.gz 2>/dev/null | head -n 1)
+
+        # shellcheck disable=SC2012
+        echo "${MSG[info_log_archive_opening]} $newest_archive"
+        
+        tar -xzOf "$newest_archive" | less +F 2>/dev/null || tar -xzOf "$newest_archive"
+    else
+        echo "${MSG[info_no_log_found]} $LOG_DIR"
+        echo "${MSG[info_log_first_run]}"
+    fi
+    exit 0
+}
+
+
+
+# ───── Cron Management ────────────────────────────────
+
+schedule_cron() {
+    show_header
+    printf "%b%s%b\n" "${FORMATTING_BOLD}" "${MSG[cron_manager]}" "${FORMATTING_RESET}"
+    if is_cron_scheduled; then
+        info "$(printf "%s\n%s" "${MSG[cron_already]}" "$SCRIPT_PATH")"
+
+        local existing
+        
+        existing=$(crontab -l 2>/dev/null | grep "$SCRIPT_PATH")
+        echo "${MSG[cron_existing]} $existing"
+        exit 0
+    fi
+
+    local cron_entry
+
+    if [[ "$CRON_INTERVAL_MINUTES" -eq 60 ]]; then
+        cron_entry="0 * * * * $SCRIPT_PATH --quiet"
+    elif (( CRON_INTERVAL_MINUTES % 60 == 0 )); then
+        cron_entry="0 */$(( CRON_INTERVAL_MINUTES / 60 )) * * * $SCRIPT_PATH --quiet"
+    else
+        cron_entry="*/$CRON_INTERVAL_MINUTES * * * * $SCRIPT_PATH --quiet"
+    fi
+
+    (crontab -l 2>/dev/null; echo "$cron_entry") | crontab -
+
+    info "${MSG[cron_scheduled]}"
+    echo "  $cron_entry"
+    echo ""
+    printf "${MSG[tmpl_cron_interval]} %s" "$CRON_INTERVAL_MINUTES"
+    echo "${MSG[cron_logs_written]} $RUNTIME_LOG"
+    exit 0
+}
+
+unschedule_cron() {
+    show_header
+    printf "%b%s%b\n" "${FORMATTING_BOLD}" "${MSG[cron_manager]}" "${FORMATTING_RESET}"
+    if ! is_cron_scheduled; then
+        warn "$(printf "%s\n%s" "${MSG[cron_none_found]}" "$SCRIPT_PATH")"
+        exit 0
+    fi
+
+    crontab -l 2>/dev/null | grep -v "$SCRIPT_PATH" | crontab -
+
+    info "${MSG[cron_removed]}"
+    exit 0
+}
+
+
+
+# ───── Run Archive: compress previous runs' logs ─────
+# Called at START of a new run. Stable runtime files are packed into
+# one timestamped tar.gz, then removed. Archive members keep their
+# stable names (runtime.log, transfer.log); only the archive name
+# carries the stamp. Empty transfer logs are discarded, not archived.
+
+archive_completed_runs() {
+    [[ -e "$RUNTIME_LOG" ]] || return 0
+
+    local -a stamp members archive
+    
+    stamp="$(date -u '+%Y%m%dT%H%M%SZ')"
+
+    # Empty transfer logs (non-upload runs) are never archived
+    if [[ -e "$TRANSFER_LOG" && ! -s "$TRANSFER_LOG" ]]; then
+        rm -f "$TRANSFER_LOG"
+    fi
+
+    members=(runtime.log)
+    [[ -e "$TRANSFER_LOG" ]] && members+=(transfer.log)
+
+    archive="$LOG_DIR/${stamp}.tar.gz"
+
+    if tar -czf "$archive" -C "$LOG_DIR" "${members[@]}" 2>/dev/null; then
+        rm -f "$RUNTIME_LOG" "$TRANSFER_LOG"
+        log "[INFO] Archived run logs: $(basename "$archive")"
+    else
+        warn "${MSG[warn_archive_failed]}"
+        rm -f "$archive"
+    fi
+}
+
+
+
+# ───── Retention: keep only the newest N archived runs ─────
+
+prune_old_runs() {
+    local -a old_archives
+
+    # shellcheck disable=SC2012
+    mapfile -t old_archives < <(ls -1t "$LOG_DIR"/*.tar.gz \
+                                 2>/dev/null | tail -n +"$(( KEEP_LOG_RUNS + 1 ))")
+    [[ ${#old_archives[@]} -eq 0 ]] && return 0
+    rm -f "${old_archives[@]}"
+    log "[INFO] Pruned ${#old_archives[@]} archived run(s) beyond KEEP_LOG_RUNS."
+}
+
+
+
+# ───── Dependency Checks ──────────────────────────────
+
+check_dependencies() {
+    local missing=()
+
+    if ! command -v proton-drive &>/dev/null; then
+        missing+=("proton-drive")
+    fi
+
+    if ! command -v jq &>/dev/null; then
+        missing+=("jq")
+    fi
+
+    if ! command -v md5sum &>/dev/null; then
+        missing+=("md5sum")
+    fi
+
+    if ! command -v tar &>/dev/null; then
+        missing+=("tar")
+    fi
+
+    if [[ ${#missing[@]} -gt 0 ]]; then
+        fail "${MSG[fail_dep_missing]} ${missing[*]}"
+        echo ""
+        echo "  - proton-drive  See https://proton.me/drive/cli"
+        echo "  - jq            apt-get install jq OR dnf install jq OR pacman -S jq"
+        echo "  - md5sum        Usually included in coreutils"
+        echo "  - tar           apt-get install tar OR dnf install tar OR pacman -S tar"
+        exit 1
+    fi
+
+    info "${MSG[info_deps_ok]}"
+}
+
+
+
+# ───── Parse Command Line Arguments ───────────────────
+
+parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --help|-h)
+                SHOW_HELP=true
+                shift
+                ;;
+            --version|-V)
+                SHOW_VERSION=true
+                shift
+                ;;
+            --verbose)
+                VERBOSE=true
+                RUN_BACKUP=true
+                shift
+                ;;
+            --quiet)
+                QUIET_MODE=true
+                RUN_BACKUP=true
+                shift
+                ;;
+            --dry-run)
+                DRY_RUN=true
+                RUN_BACKUP=true
+                shift
+                ;;
+            --reset-db)
+                RESET_DB=true
+                RUN_BACKUP=true
+                shift
+                ;;
+            --log)
+                SHOW_LOG=true
+                shift
+                ;;
+            --schedule)
+                SCHEDULE_CRON=true
+                shift
+                ;;
+            --unschedule)
+                UNSCHEDULE_CRON=true
+                shift
+                ;;
+            *)
+                warn "${MSG[warn_unknown_option]} $1"
+
+                # shellcheck disable=SC2059
+                printf "${MSG[tmpl_usage_hint]}\n" "$SCRIPT_NAME"
+                exit 1
+                ;;
+        esac
+    done
+}
+
+
+
+# ───── Lock File Management ───────────────────────────
+
+acquire_lock() {
+    local pid start_time
+
+    pid=$$
+    start_time=$(date +%s)
+
+    if [[ -f "$LOCK_FILE" ]]; then
+        local existing_pid
+
+        # Read PID only; the stored line is "<pid> <start_time>".
+        # Without the discard variable, existing_pid would contain
+        # BOTH fields and kill -0 would always fail — silently
+        # disabling mutual exclusion.
+        read -r existing_pid _ < "$LOCK_FILE" 2>/dev/null || true
+
+        if [[ -n "$existing_pid" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+            # shellcheck disable=SC2059
+            fail "$(printf "${MSG[tmpl_lock_running]}" "$existing_pid")"
+            exit 1
+        else
+            warn "${MSG[warn_lock_stale]}"
+            rm -f "$LOCK_FILE"
+        fi
+    fi
+
+    echo "$pid $start_time" > "$LOCK_FILE"
+    log "[INFO] Lock acquired (PID: $pid)"
+
+    # HUP covers closing the terminal window during a run
+    trap 'release_lock; exit' INT TERM HUP EXIT
+}
+
+release_lock() {
+    if [[ -f "$LOCK_FILE" ]]; then
+        rm -f "$LOCK_FILE"
+        log "[INFO] Lock released."
+    fi
+}
+
+
+
+# ───── Authentication Check ───────────────────────────
+
+ensure_session() {
+    info "${MSG[info_session_check]}"
+
+    if proton-drive filesystem list /my-files --json &>/dev/null; then
+        success "${MSG[info_session_valid]}"
+        return 0
+    else
+        warn "${MSG[info_auth_required]}"
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            warn "${MSG[warn_dry_run_auth]}"
+            return 1
+        fi
+
+        echo ""
+        echo "${MSG[info_login_instruction]} proton-drive auth login"
+        echo ""
+
+        if proton-drive auth login; then
+            success "${MSG[info_login_success]}"
+            return 0
+        else
+            fail "${MSG[fail_login_failed]}"
+            return 1
+        fi
+    fi
+}
+
+
+
+# ───── Ensure Remote Directory Exists ─────────────────
+
+ensure_remote_dir() {
+    local full_remote_path base subpath
+
+    full_remote_path="$1"
+
+    if [[ -n "${CREATED_REMOTE_DIRS[$full_remote_path]:-}" ]]; then
+        return 0
+    fi
+
+    base="$REMOTE_BASE_PATH"
+    subpath="${full_remote_path#"$base"}"
+    subpath="${subpath#/}"
+
+    if [[ -z "$subpath" ]]; then
+        if [[ -z "${CREATED_REMOTE_DIRS[$base]:-}" ]]; then
+            local parent name
+
+            parent="/my-files"
+            name="${base##*/}"
+            if [[ "$DRY_RUN" == "true" ]]; then
+                info "[DRY-RUN] ${MSG[info_dry_create_folder]} $base"
+            else
+                if ! proton-drive filesystem create-folder "$parent" "$name" >/dev/null 2>&1; then
+                    # Folder may already exist — verify
+                    if proton-drive filesystem info "$base" >/dev/null 2>&1; then
+                        log "[INFO] Remote folder already exists: $base"
+                    else
+                        fail "${MSG[fail_remote_create]} $base"
+                        return 1
+                    fi
+                fi
+            fi
+            CREATED_REMOTE_DIRS["$base"]=1
+        fi
+        return 0
+    fi
+
+    local current
+
+    current="$base"
+
+    IFS='/' read -ra segments <<< "$subpath"
+    for seg in "${segments[@]}"; do
+        local next
+
+        next="${current}/${seg}"
+        if [[ -z "${CREATED_REMOTE_DIRS[$next]:-}" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+                info "[DRY-RUN] ${MSG[info_dry_create_folder]} $next"
+            else
+                if ! proton-drive filesystem create-folder "$current" "$seg" >/dev/null 2>&1; then
+                    # Folder may already exist — verify
+                    if proton-drive filesystem info "$next" >/dev/null 2>&1; then
+                        log "[INFO] Remote folder already exists: $next"
+                    else
+                        fail "${MSG[fail_remote_create]} $next"
+                        return 1
+                    fi
+                fi
+            fi
+            CREATED_REMOTE_DIRS["$next"]=1
+        fi
+        current="$next"
+    done
+}
+
+
+
+# ───── Terminal Resize: one-shot graceful degradation ─────
+# A resize invalidates the cached geometry the bar invariant
+# depends on (reserved line, cached cols). Rather than re-anchoring
+# against unknown reflow behaviour across terminals, the progress
+# system is dismantled and the run continues in quiet mode.
+# Progress remains fully observable via the transfer/runtime logs.
+
+handle_resize() {
+    [[ "$PROGRESS_ENABLED" == "true" ]] || return 0
+
+    PROGRESS_ENABLED=false
+
+    # Release scroll region, then clear the mangled screen for a
+    # deterministic output surface for the remainder of the run
+    printf "\033[r\033[H\033[2J" >&2
+
+    warn "${MSG[warn_resize_disabled]}"
+    warn "${MSG[warn_resize_continuing]}"
+    echo -e "          tail -f \"$TRANSFER_LOG\""
+}
+
+
+
+# ───── Local Database Building ────────────────────────
+
+build_local_db() {
+    info "${MSG[info_building_db]}"
+    log "[INFO] Starting database build."
+
+    local file_count total_size total_files src_dir
+    
+    file_count=0
+    total_size=0
+
+    # ── Pass 1: pre-count files (metadata traversal only, no hashing) ──
+    # Provides the denominator for the progress bar. Cheap compared to
+    # the MD5 pass that follows.
+    total_files=0
+
+    for src_dir in "${SOURCE_DIRS[@]}"; do
+        [[ -d "$src_dir" ]] || continue
+        local n
+
+        n=0
+        n=$(find "$src_dir" -type f -not -type l -print 2>/dev/null | wc -l)
+        total_files=$(( total_files + n ))
+    done
+    log "[INFO] File pre-count for progress display: $total_files files."
+
+    local tmp_entries
+    
+    tmp_entries=$(mktemp) || { fail "Cannot create temp file for database build."; exit 1; }
+
+    for src_dir in "${SOURCE_DIRS[@]}"; do
+        if [[ ! -d "$src_dir" ]]; then
+            warn "${MSG[warn_skip_missing_dir]} $src_dir"
+            continue
+        fi
+
+        info "${MSG[label_scan]} $src_dir"
+
+        while IFS= read -r -d '' file; do
+
+            # Include source dir basename in relative path for
+            # consistent mapping e.g. $HOME/templates/file.txt →
+            # templates/file.txt
+
+            local rel_base rel_path checksum file_size file_mtime_epoch file_mtime
+
+            rel_base="${src_dir#"$SOURCE_BASE"/}"
+            rel_path="${rel_base}/${file#"$src_dir"/}"
+            rel_path="${rel_path#/}"
+
+            checksum=$(md5sum "$file" 2>/dev/null | awk '{print $1}') || {
+                warn "${MSG[warn_file_unreadable]} $file"
+                continue
+            }
+
+            file_size=$(stat -c%s "$file" 2>/dev/null) || file_size=0
+            file_mtime_epoch=$(stat -c%Y "$file" 2>/dev/null) || file_mtime_epoch=0
+            file_mtime=$(date -d "@$file_mtime_epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null) \
+                || file_mtime="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+            jq -nc \
+                --arg lp "$file" \
+                --arg rp "$rel_path" \
+                --arg md5 "$checksum" \
+                --argjson sz "$file_size" \
+                --arg mt "$file_mtime" \
+                '{local_path: $lp, relative_path: $rp, md5: $md5, size_bytes: $sz, mtime: $mt}' >> "$tmp_entries"
+
+            file_count=$((file_count + 1))
+            total_size=$((total_size + file_size))
+
+            # Progress bar (verbose only)
+            if [[ "$VERBOSE" == "true" ]] && (( file_count % 1000 == 0 )); then
+                show_progress_bar "$file_count" "$total_files" "$total_size" "${MSG[label_scan]}"
+            fi
+        done < <(find "$src_dir" -type f -not -type l -print0 2>/dev/null)
+    done
+
+    if [[ "$file_count" -eq 0 ]]; then
+        warn "$(printf '%s\n         %s' "${MSG[warn_db_empty]}" " ${CONFIG_FILE}")"
+    fi
+
+    local srcdirs_json tmp_output human_size
+    
+    srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
+    tmp_output=$(mktemp) || { fail "Cannot create temp file for output."; rm -f "$tmp_entries"; exit 1; }
+
+    if [[ -s "$tmp_entries" ]]; then
+        jq -n \
+            --arg ver "1.0" \
+            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --slurpfile entries "$tmp_entries" \
+            --argjson srcdirs "$srcdirs_json" \
+            --arg rbp "$REMOTE_BASE_PATH" \
+            '{version: $ver, created_at: $created, last_modified: $modified, entries: $entries, source_dirs: $srcdirs, remote_base: $rbp}' > "$tmp_output"
+    else
+        jq -n \
+            --arg ver "1.0" \
+            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --argjson srcdirs "$srcdirs_json" \
+            --arg rbp "$REMOTE_BASE_PATH" \
+            '{version: $ver, created_at: $created, last_modified: $modified, entries: [], source_dirs: $srcdirs, remote_base: $rbp}' > "$tmp_output"
+    fi
+
+    if ! mv "$tmp_output" "$CHECKSUM_DB"; then
+        fail "Failed to finalize checksum database (mv failed)."
+        rm -f "$tmp_entries"
+        exit 1
+    fi
+    rm -f "$tmp_entries"
+
+    # Console gets human-readable size; the log below keeps raw
+    # bytes (grep- and diff-friendly for automated consumption).
+    human_size=$(numfmt --to=iec-i --suffix=B "$total_size" 2>/dev/null) \
+        || human_size="${total_size}B"
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_db_built]}" "$file_count" "$human_size")"
+    log "[INFO] Local database rebuilt with $file_count entries, $total_size bytes."
+}
+
+
+
+# ───── Load Existing Database ─────────────────────────
+
+declare -gA PREV_MD5_MAP=()
+
+load_local_db() {
+    if [[ "$RESET_DB" == "true" ]]; then
+        warn "${MSG[warn_rebuild_db]}"
+        PREVIOUS_DB_PATH="/dev/null"
+        build_local_db
+        PREV_MD5_MAP=()
+        log "[INFO] Previous DB discarded (--reset-db); 0 entries loaded."
+        return 0
+    fi
+
+    if [[ ! -f "$CHECKSUM_DB" ]]; then
+        info "${MSG[info_no_db_found]}"
+        PREVIOUS_DB_PATH="/dev/null"
+        build_local_db
+        PREV_MD5_MAP=()
+        return 0
+    fi
+
+    # Copy previous DB to a TEMP FILE before rebuilding.
+    local prev_tmp prev_count loaded
+
+    prev_tmp=$(mktemp) || { fail "Cannot create temp file for previous DB."; exit 1; }
+    cp "$CHECKSUM_DB" "$prev_tmp"
+    PREVIOUS_DB_PATH="$prev_tmp"
+
+    prev_count=$(jq '.entries | length' "$PREVIOUS_DB_PATH" 2>/dev/null) || prev_count=0
+
+    # Rebuild current DB (overwrites $CHECKSUM_DB, previous is safe in $prev_tmp)
+    build_local_db
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_prev_db_loaded]}" "$prev_count")"
+    log "[INFO] Previous DB loaded ($prev_count entries); current DB rebuilt."
+
+    # ── Build lookup table with progress bar (verbose only) ──
+    if [[ "$VERBOSE" == "true" && "$prev_count" -gt 0 ]]; then
+        info "${MSG[info_lookup_build]}"
+    fi
+    if [[ "$VERBOSE" == "true" && "$prev_count" -gt 0 ]]; then
+        show_progress_bar 0 "$prev_count" 0 "${MSG[label_load]}"
+    fi
+
+    loaded=0
+
+    while IFS=$'\t' read -r path md5; do
+        [[ -n "$path" ]] && PREV_MD5_MAP["$path"]="$md5"
+        loaded=$((loaded + 1))
+        if [[ "$VERBOSE" == "true" ]] && (( loaded % 5000 == 0 )); then
+            show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
+        fi
+    done < <(jq -r '.entries[] | [.relative_path, .md5] | @tsv' \
+               "$PREVIOUS_DB_PATH" 2>/dev/null)
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
+        sleep 1         # brief final state visibility
+    fi
+
+    log "[INFO] Loaded $loaded entries into lookup table."
+}
+
+
+
+# ───── Escape Glob Metacharacters ─────────────────────
+# proton-drive CLI performs its own glob expansion on local file paths.
+# Characters [ ] ? * { } are interpreted as glob patterns, not literals.
+# Workaround: wrap each metacharacter in a character class containing
+# only itself (e.g. [ → [[]). This is universally supported by glob
+# libraries and does NOT interfere with normal paths.
+
+escape_glob_chars() {
+    local s result i char
+
+    s="$1"
+    # Fast path: if no glob-special chars, return unchanged
+    [[ "$s" == *[\[\]\*\?\{\}]* ]] || { printf '%s' "$s"; return; }
+
+    result=""
+
+    for ((i = 0; i < ${#s}; i++)); do
+        char="${s:i:1}"
+        case "$char" in
+            '[') result+='[[]' ;;
+            ']') result+='[]]' ;;
+            '?') result+='[?]' ;;
+            '*') result+='[*]' ;;
+            '{') result+='[{]' ;;
+            '}') result+='[}]' ;;
+            *)   result+="$char" ;;
+        esac
+    done
+    printf '%s' "$result"
+}
+
+
+
+# ───── Compare and Upload ─────────────────────────────
+
+compare_and_upload() {
+    info "${MSG[info_compare_upload]}"
+    log "[INFO] Upload comparison phase started."
+
+    local local_entries
+    
+    local_entries=$(jq -c '.entries[]' "$CHECKSUM_DB" 2>/dev/null) || true
+
+    if [[ -z "$local_entries" ]]; then
+        info "${MSG[info_no_local_files]}"
+        return 0
+    fi
+
+    local total_to_process progress_interval seen seen_bytes
+    
+    total_to_process=$(echo "$local_entries" | wc -l)
+
+    # Progress update frequency
+    if [[ "$total_to_process" -lt 1000 ]]; then
+        progress_interval=10
+    else
+        progress_interval=100
+    fi
+
+    # Unified counter: every file this phase processes (skip AND upload)
+    seen=0
+    seen_bytes=0
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        exec 3>>"$TRANSFER_LOG"
+    else
+        exec 3>/dev/null
+    fi
+
+    # Anchor the bar from the very start of the phase
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar 0 "$total_to_process" 0 "${MSG[label_process]}"
+    fi
+
+    while IFS= read -r entry; do
+        [[ -z "$entry" ]] && continue
+
+        local local_path rel_path md5 fsize
+
+        local_path=$(echo "$entry" | jq -r '.local_path')
+        rel_path=$(echo "$entry" | jq -r '.relative_path')
+        md5=$(echo "$entry" | jq -r '.md5')
+
+        seen=$((seen + 1))
+         
+        fsize=$(stat -c%s "$local_path" 2>/dev/null) || fsize=0
+        seen_bytes=$((seen_bytes + fsize))
+
+        if [[ ! -f "$local_path" ]]; then
+            detail_warn "  File no longer exists (skipping): $rel_path"
+            WARNING_COUNT=$((WARNING_COUNT + 1))
+        else
+            local prev_md5
+
+            prev_md5="${PREV_MD5_MAP[$rel_path]:-}"
+
+            if [[ -n "$prev_md5" && "$prev_md5" == "$md5" ]]; then
+                SKIP_COUNT=$((SKIP_COUNT + 1))
+                detail_info "- Skip (unchanged): $rel_path"
+            else
+                local dir_part upload_dest
+                
+                dir_part=$(dirname "$rel_path")
+
+                if [[ "$dir_part" == "." ]]; then
+                    upload_dest="$REMOTE_BASE_PATH"
+                else
+                    upload_dest="${REMOTE_BASE_PATH}/${dir_part}"
+                    if ! ensure_remote_dir "$upload_dest"; then
+                        detail_fail "  Cannot create remote directory for: $rel_path (skipping)"
+                        log "[ERROR] Remote directory creation failed for: $upload_dest — skipping $rel_path"
+                        ERROR_COUNT=$((ERROR_COUNT + 1))
+                        continue
+                    fi
+                fi
+
+                if [[ "$DRY_RUN" == "true" ]]; then
+                    detail_info "[DRY-RUN] Would upload: $rel_path"
+                    UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
+                else
+                    local safe_path
+                    
+                    safe_path=$(escape_glob_chars "$local_path")
+
+                    set -f
+
+                    if proton-drive filesystem upload "$safe_path" "$upload_dest" \
+                        -f "$UPLOAD_CONFLICT_STRATEGY" ${UPLOAD_SKIP_THUMBNAILS} >&3 2>"$TMP_ERR_FILE"; then
+
+                        set +f
+
+                        UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
+                        UPLOAD_BYTES=$((UPLOAD_BYTES + fsize))
+                        detail_success "  ${MSG[info_uploaded]} $rel_path"
+                    else
+
+                        set +f
+
+                        local err_msg
+
+                        err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ' || echo "unknown error")
+                        detail_fail "  Upload failed: $rel_path ($err_msg)"
+                        log "[ERROR] Upload failed for: $local_path — $err_msg"
+                        ERROR_COUNT=$((ERROR_COUNT + 1))
+                    fi
+                fi
+            fi
+        fi
+
+        # Unified progress update — counts every processed file
+        if [[ "$VERBOSE" == "true" ]] && (( seen % progress_interval == 0 )); then
+            show_progress_bar "$seen" "$total_to_process" "$seen_bytes" "${MSG[label_process]}"
+        fi
+    done <<< "$local_entries"
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar "$seen" "$total_to_process" "$seen_bytes" "${MSG[label_process]}"
+        sleep 1         # brief final state visibility
+    fi
+
+    exec 3>&-
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_upload_phase]}" "$UPLOAD_COUNT" "$SKIP_COUNT")"
+    log "[INFO] Upload phase: $UPLOAD_COUNT uploaded, $SKIP_COUNT skipped, $UPLOAD_BYTES bytes."
+}
+
+
+
+# ───── Compare and Delete ─────────────────────────────
+
+compare_and_delete() {
+    info "${MSG[info_compare_delete]}"
+    log "[INFO] Delete comparison phase started."
+
+    local prev_paths_file curr_paths_file orphan_count
+
+    prev_paths_file=$(mktemp) || { fail "Cannot create temp file."; return 1; }
+    jq -r '.entries[].relative_path' "$PREVIOUS_DB_PATH" 2>/dev/null \
+        | sort -u > "$prev_paths_file"
+
+    curr_paths_file=$(mktemp) || { fail "Cannot create temp file."; \
+        rm -f "$prev_paths_file"; return 1; }
+    jq -r '.entries[].relative_path' "$CHECKSUM_DB" 2>/dev/null \
+        | sort -u > "$curr_paths_file"
+
+    orphan_count=$(comm -23 "$prev_paths_file" "$curr_paths_file" | wc -l)
+
+    if [[ "$orphan_count" -eq 0 ]]; then
+        info "${MSG[info_no_orphans]}"
+        rm -f "$prev_paths_file" "$curr_paths_file"
+        return 0
+    fi
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar 0 "$orphan_count" 0 "${MSG[label_delete]}"
+    fi
+
+    local progress_interval processed
+
+    if [[ "$orphan_count" -lt 100 ]]; then
+        progress_interval=1
+    else
+        progress_interval=10
+    fi
+
+    processed=0
+
+    while IFS= read -r prev_rel; do
+        [[ -z "$prev_rel" ]] && continue
+
+        processed=$((processed + 1))
+
+        local remote_path
+
+        remote_path="${REMOTE_BASE_PATH}/${prev_rel}"
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            detail_warn "[DRY-RUN] Would $DELETE_MODE: $remote_path"
+        else
+            if [[ "$DELETE_MODE" == "delete" ]]; then
+                # Permanent deletion requires Proton Drive's two-step:
+                # trash first, then delete by its trash path.
+                if ! proton-drive filesystem trash "$remote_path" \
+                    >/dev/null 2>"$TMP_ERR_FILE"; then
+                    local err_msg
+                    err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
+                    err_msg="${err_msg:-unknown error}"
+                    detail_fail "  trash failed: $remote_path"
+                    log "[ERROR] trash (pre-delete step) failed for: $remote_path — $err_msg"
+                    ERROR_COUNT=$((ERROR_COUNT + 1))
+                    continue
+                fi
+
+                local trash_target
+
+                trash_target="/trash/$(basename "$remote_path")"
+
+                if proton-drive filesystem delete "$trash_target" \
+                    >/dev/null 2>"$TMP_ERR_FILE"; then
+                    DELETE_COUNT=$((DELETE_COUNT + 1))
+                    detail_success "  Permanently deleted (after trash): $remote_path"
+                    log "[INFO] Permanently deleted: $remote_path"
+                else
+                    local err_msg
+                    err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
+                    err_msg="${err_msg:-unknown error}"
+                    detail_fail "  delete failed: $trash_target (origin: $remote_path)"
+                    log "[ERROR] delete failed for: $remote_path — trash path was: $trash_target — $err_msg"
+                    ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+            else
+                # trash mode: single step, recoverable
+                if proton-drive filesystem trash "$remote_path" \
+                    >/dev/null 2>"$TMP_ERR_FILE"; then
+                    DELETE_COUNT=$((DELETE_COUNT + 1))
+                    detail_success "  Trashed (orphan): $remote_path"
+                    log "[INFO] Trashed orphaned remote file: $remote_path"
+                elif ! proton-drive filesystem info "$remote_path" &>/dev/null; then
+                    # Node already absent on remote — benign, not an error
+                    detail_info "  Already absent on remote (skipping): $remote_path"
+                    log "[INFO] Orphan not present on remote: $remote_path"
+                else
+                    local err_msg
+                    err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
+                    err_msg="${err_msg:-unknown error}"
+                    detail_fail "- trash failed: $remote_path"
+                    log "[ERROR] trash failed for: $remote_path — $err_msg"
+                    ERROR_COUNT=$((ERROR_COUNT + 1))
+                fi
+            fi
+        fi
+
+        # Progress bar (verbose only)
+        if [[ "$VERBOSE" == "true" ]] && \
+            (( processed % progress_interval == 0 )); then
+            show_progress_bar "$processed" "$orphan_count" 0 "${MSG[label_delete]}"
+        fi
+    done < <(comm -23 "$prev_paths_file" "$curr_paths_file")
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar "$processed" "$orphan_count" 0 "${MSG[label_delete]}"
+        sleep 1         # brief final state visibility
+    fi
+
+    rm -f "$prev_paths_file" "$curr_paths_file"
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_delete_phase]}" "$DELETE_COUNT" "${MSG[mode_verb_${DELETE_MODE}]}")"
+}
+
+
+
+# ───── Progress Bar Helpers ───────────────────────────
+# A scroll region confines all regular output to the lines
+# above; the LAST terminal line is permanently reserved for
+# the progress bar and can never be scrolled onto. Per-file
+# detail messages are log-only (see detail_* functions).
+# Disabled automatically when stderr is not a terminal
+# (pipes, cron, redirection).
+
+PROGRESS_ENABLED=false
+PROGRESS_DREW=false    # true once any bar was actually drawn
+PROGRESS_LINES=0
+PROGRESS_COLS=80
+
+progress_init() {
+    # --quiet is an output contract (warnings + summary only), not
+    # merely disabled rendering: no scroll region, no bridge line,
+    # no WINCH trap — nothing TUI-related is ever set up.
+    [[ "$QUIET_MODE" == "true" ]] && return 0
+
+    [[ -t 2 ]] || return 0
+    PROGRESS_LINES=$(tput lines 2>/dev/null) || PROGRESS_LINES=24
+    PROGRESS_COLS=$(tput cols 2>/dev/null) || PROGRESS_COLS=80
+    printf "\033[2J\033[1;%dr\033[H" "$(( PROGRESS_LINES - 1 ))" >&2
+    PROGRESS_ENABLED=true
+    printf "\0337\033[%d;1H${INDICATOR_PROC}${MSG[status_preparing]}${FORMATTING_RESET}\033[K\0338" \
+        "$PROGRESS_LINES" >&2
+    trap 'handle_resize' WINCH
+}
+
+show_progress_bar() {
+    local current total bytes label term_width term_lines pct human_bytes stats stats_len label_len bar_width filled empty bar j
+
+    current="$1"
+    total="$2"
+    bytes="${3:-0}"
+    label="${4:-Processing}"
+
+    if [[ ! -t 2 || "$PROGRESS_ENABLED" != "true" ]]; then
+        return 0
+    fi
+
+    # Geometry comes exclusively from the cached values measured
+    # ONCE in progress_init() — never re-measured here. A second
+    # tput call can disagree with the cached value in multiplexers,
+    # producing bars on different lines and of different widths.
+    term_width="$PROGRESS_COLS"
+    term_lines="$PROGRESS_LINES"
+    pct=0
+
+    [[ "$total" -gt 0 ]] && pct=$(( current * 100 / total ))
+
+    human_bytes=$(numfmt --to=iec-i --suffix=B "$bytes" 2>/dev/null) \
+        || human_bytes="${bytes}B"
+
+    stats="$current/$total ($pct%, $human_bytes)"
+    stats_len=${#stats}
+    label_len=${#label}
+    bar_width=$(( term_width - stats_len - label_len - 5 ))
+
+    [[ "$bar_width" -lt 10 ]] && bar_width=10
+
+    filled=$(( pct * bar_width / 100 ))
+    [[ "$filled" -gt "$bar_width" ]] && filled=$bar_width
+    empty=$(( bar_width - filled ))
+
+    bar=""
+    for ((j = 0; j < filled; j++)); do bar+="▓"; done
+    for ((j = 0; j < empty; j++)); do bar+="░"; done
+
+    # Absolute positioning on the reserved line: save cursor,
+    # draw, restore cursor — messages continue above unharmed.
+    printf "\0337\033[%d;1H${INDICATOR_INFO}%s${FORMATTING_RESET} %s %s\033[K\0338" \
+        "$term_lines" "$label" "$bar" "$stats" >&2
+
+    PROGRESS_DREW=true
+}
+
+
+
+# ───── Progress Teardown ──────────────────────────────────
+
+progress_teardown() {
+    if [[ "$PROGRESS_ENABLED" == "true" ]]; then
+        # Release the scroll region
+        printf "\033[r" >&2
+        if [[ "$PROGRESS_DREW" == "true" ]]; then
+            # Final bar exists — keep it as end-state, park cursor
+            printf "\033[%d;1H\n\n" "$PROGRESS_LINES" >&2
+        else
+            # No bar was ever drawn — the bridge line is stale,
+            # wipe it instead of preserving it
+            printf "\033[%d;1H\033[K" "$PROGRESS_LINES" >&2
+        fi
+        PROGRESS_ENABLED=false
+    fi
+}
+
+
+
+# ───── Print Summary ──────────────────────────────────
+
+print_summary() {
+    echo ""
+    if [[ "$ERROR_COUNT" -gt 0 ]]; then
+        echo -e "${INDICATOR_WARN}${MSG[sum_completed_errors]}${FORMATTING_RESET}"
+    else
+        echo -e "${INDICATOR_PASS}${MSG[sum_completed_ok]}${FORMATTING_RESET}"
+    fi
+    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_uploaded]}" "$UPLOAD_COUNT"
+    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_skipped]}" "$SKIP_COUNT"
+    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[mode_verb_${DELETE_MODE}]}" "$DELETE_COUNT"
+    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_errors]}" "$ERROR_COUNT"
+    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_warnings]}" "$WARNING_COUNT"
+    log "[SUMMARY] Uploaded: $UPLOAD_COUNT, Skipped: $SKIP_COUNT, ${DELETE_MODE^}d: $DELETE_COUNT, Errors: $ERROR_COUNT, Warnings: $WARNING_COUNT"
+}
+
+
+
+# ───── Cleanup ────────────────────────────────────────
+
+cleanup() {
+    rm -rf "$CONFIG_DIR/tmp" 2>/dev/null || true
+    rm -f "$TMP_ERR_FILE" 2>/dev/null || true
+
+    if [[ "$PREVIOUS_DB_PATH" != "/dev/null" && -f "$PREVIOUS_DB_PATH" ]]; then
+        rm -f "$PREVIOUS_DB_PATH"
+    fi
+
+    # Summary FIRST — while the scroll region is still active, so
+    # scrolling output can never touch the bar on the reserved line.
+    print_summary
+
+    # Teardown SECOND — releases the region and arranges the prompt
+    # one blank line below the (persisting) progress bar.
+    progress_teardown
+
+    if [[ "$ERROR_COUNT" -gt 0 ]]; then
+        log "[WARN] Backup completed with $ERROR_COUNT errors."
+    elif [[ "$WARNING_COUNT" -gt 0 ]]; then
+        log "[INFO] Backup completed with $WARNING_COUNT warnings."
+    else
+        log "[SUCCESS] Backup completed cleanly."
+    fi
+
+    log "[INFO] Cleanup finished. Session ended."
+}
+
+
+
+# ───── Main Execution ─────────────────────────────────
+
+main() {
+    # Locale first (localized errors for unknown options), then args,
+    # then config (values are only needed AFTER parse_args succeeded).
+    if [[ -f "$LOCALE_FILE" && "$SYSTEM_LANG" != "en" ]]; then
+        load_locale "$LOCALE_FILE"
+    else
+        load_locale "$FALLBACK_FILE"
+    fi
+
+    parse_args "$@"
+    load_config
+
+    # Config is user input — validate contracts before trusting them
+    case "$DELETE_MODE" in trash|delete) ;; *)
+        fail "Invalid DELETE_MODE: '$DELETE_MODE' (must be trash or delete)."; exit 1 ;; esac
+    case "$UPLOAD_CONFLICT_STRATEGY" in replace|skip) ;; *)
+        fail "Invalid UPLOAD_CONFLICT_STRATEGY: '$UPLOAD_CONFLICT_STRATEGY' (must be replace or skip)."; exit 1 ;; esac
+    [[ "$CRON_INTERVAL_MINUTES" =~ ^[1-9][0-9]*$ ]] || {
+        fail "Invalid CRON_INTERVAL_MINUTES: '$CRON_INTERVAL_MINUTES'."; exit 1; }
+
+    # Expand relative SOURCE_DIRS entries against SOURCE_BASE;
+    # absolute paths (leading /) pass through unchanged.
+    local i
+
+    for i in "${!SOURCE_DIRS[@]}"; do
+        if [[ "${SOURCE_DIRS[i]}" != /* ]]; then
+            SOURCE_DIRS[i]="$SOURCE_BASE/${SOURCE_DIRS[i]}"
+        fi
+    done
+
+    if [[ "$SHOW_HELP" == "true" ]]; then
+        show_help
+    fi
+
+    if [[ "$SHOW_VERSION" == "true" ]]; then
+        show_version
+    fi
+
+    if [[ "$SHOW_LOG" == "true" ]]; then
+        show_log
+    fi
+
+    if [[ "$SCHEDULE_CRON" == "true" ]]; then
+        schedule_cron
+    fi
+
+    if [[ "$UNSCHEDULE_CRON" == "true" ]]; then
+        unschedule_cron
+    fi
+
+    if [[ "$RUN_BACKUP" == "false" && "$SHOW_HELP" == "false" && \
+          "$SHOW_VERSION" == "false" && "$SHOW_LOG" == "false" && \
+          "$SCHEDULE_CRON" == "false" && "$UNSCHEDULE_CRON" == "false" ]]; then
+        show_menu
+        exit 0
+    fi
+
+    progress_init
+    show_header
+
+    if [[ "$QUIET_MODE" == "true" ]]; then
+        notice "${MSG[quiet_notice]}"
+        echo "       $SCRIPT_NAME --log"
+    fi
+
+    mkdir -p "$CONFIG_DIR"
+    mkdir -p "$LOG_DIR"
+
+    acquire_lock            # mutex FIRST — before touching shared state
+    check_dependencies      # fail fast, localized
+    archive_completed_runs  # bundle previous runs (pre-next-run)
+    prune_old_runs          # enforce retention
+
+    ensure_remote_dir "$REMOTE_BASE_PATH"
+    ensure_session || exit 1
+
+    if [[ ${#SOURCE_DIRS[@]} -eq 0 ]]; then
+        fail "${MSG[fail_no_source_dirs]}"
+        exit 1
+    fi
+
+    info "${MSG[info_initialized]}"
+    info "${MSG[info_config_header]}"
+    printf "       %s %s\n" "$(pad_to "${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
+    printf "       %s %s\n" "$(pad_to "${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
+    printf "       %s %s\n" "$(pad_to "${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
+    printf "       %s %s\n" "$(pad_to "${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
+
+    load_local_db
+    compare_and_upload
+    compare_and_delete
+    cleanup
+}
+
+# Entry point
+main "$@"
+
+# End of script

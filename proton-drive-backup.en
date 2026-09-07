@@ -1,0 +1,202 @@
+# ───────────────────────────────────────────────────────
+# proton-drive-backup — English localization
+#
+# Place in same directory as the proton-drive-backup script.
+#
+# NOTE: This file is sourced as Bash. Review files obtained
+#       from third parties before using them.
+#
+# Copyright (c) 2026 RML Tec Dev
+# (not affiliated with Proton AG)
+# ───────────────────────────────────────────────────────
+
+# ───── Status labels (indicator words) ─────────────────
+MSG[status_preparing]="Preparing data..."
+
+# ───── Initialization and configuration ────────────────
+PAD_CONFIG_WIDTH="24"
+MSG[info_initialized]="Proton Drive backup initialized."
+MSG[info_config_header]="Backup Configuration:"
+MSG[info_conflict_strategy]="Conflict strategy"
+MSG[info_delete_mode]="Delete mode"
+MSG[info_dry_run]="Dry run"
+MSG[info_reset_db]="Reset checksum database"
+MSG[quiet_notice]="Backup running in background. Follow progress with:"
+MSG[fail_no_source_dirs]="No source directories configured."
+
+# ───── Dependencies and session ────────────────────────
+MSG[fail_dep_missing]="Required dependencies not found:"
+MSG[info_deps_ok]="All dependencies satisfied."
+MSG[info_session_check]="Checking authentication session..."
+MSG[info_session_valid]="Session is valid."
+MSG[info_auth_required]="Authentication required."
+MSG[warn_dry_run_auth]="Cannot authenticate in dry-run mode. Skipping backup."
+MSG[info_login_instruction]="Please run: "
+MSG[info_login_success]="Login successful."
+MSG[fail_login_failed]="Authentication failed."
+
+# ───── Remote directory handling ───────────────────────
+MSG[info_dry_create_folder]="Would create folder:"
+MSG[fail_remote_create]="Cannot create remote folder:"
+
+# ───── Database build and load ─────────────────────────
+MSG[info_building_db]="Building local checksum database..."
+MSG[warn_skip_missing_dir]="Skipping missing directory:"
+MSG[warn_file_unreadable]="Cannot read file:"
+MSG[warn_db_empty]="No files found in source directories; check configuration in:"
+MSG[info_no_db_found]="No checksum database found; building new one..."
+MSG[info_lookup_build]="Building change-detection lookup table..."
+MSG[warn_rebuild_db]="Rebuilding checksum database..."
+MSG[label_scan]="Scan"
+MSG[label_load]="Load"
+MSG[label_process]="Process"
+MSG[label_delete]="Delete"
+
+# ───── Upload phase ────────────────────────────────────
+MSG[info_compare_upload]="Comparing local files against previous backup state..."
+MSG[info_no_local_files]="No local files to process."
+MSG[info_uploaded]="Processed:"
+
+# ───── Delete phase ────────────────────────────────────
+MSG[info_compare_delete]="Checking for locally deleted files..."
+MSG[info_no_orphans]="No orphaned files to delete."
+MSG[mode_verb_trash]="Recoverably trashed"
+MSG[mode_verb_delete]="Permanently deleted"
+
+# ───── Lock file management ────────────────────────────
+MSG[warn_lock_stale]="Removing stale lock file..."
+
+# ───── Terminal resize (graceful degradation) ──────────
+MSG[warn_resize_disabled]="Terminal resized — progress display disabled."
+MSG[warn_resize_continuing]="Backup continues in quiet mode. Follow progress with:"
+
+# ───── Logging ─────────────────────────────────────────
+MSG[info_no_log_found]="No log found in:"
+MSG[info_log_first_run]="The log file is created on first backup run."
+MSG[info_log_opening]="Opening log:"
+MSG[info_log_archive_opening]="Opening archived log from:"
+MSG[info_log_follow_hint]="Press Ctrl+C to interrupt following, Q to quit."
+MSG[warn_archive_failed]="Could not archive run logs; leaving plain files in place."
+
+# ───── Cron management ─────────────────────────────────
+MSG[cron_manager]="Cronjob Manager"
+MSG[cron_scheduled]="Cronjob scheduled successfully:"
+MSG[cron_already]="Cronjob already scheduled for:"
+MSG[cron_removed]="Cronjob removed."
+MSG[cron_none_found]="No cronjob found for:"
+MSG[cron_existing]="Existing entry:"
+MSG[cron_logs_written]="Logs are written to:"
+
+# ───── Unknown options ─────────────────────────────────
+MSG[warn_unknown_option]="Unknown option:"
+
+# ───── Version display (also used by show_version) ─────
+PAD_VERSION_WIDTH="18"  # Inflate padding to align with longest string
+MSG[info_version]="Script Version"
+MSG[info_build_date]="Script Build Date"
+MSG[info_path]="Script path"
+MSG[info_cli_version]="Loading Proton Drive CLI Information..."
+MSG[info_cli_not_installed]="Proton Drive CLI not installed."
+
+# ───── Print Summary ───────────────────────────────────
+PAD_SUMMARY_WIDTH="26"  # Inflate padding to align with longest string
+MSG[sum_uploaded]="Uploaded (new or changed)"
+MSG[sum_skipped]="Skipped (unchanged)"
+MSG[sum_errors]="Errors encountered"
+MSG[sum_warnings]="Warnings issued"
+MSG[sum_completed_ok]="Backup completed successfully"
+MSG[sum_completed_errors]="Backup completed with errors"
+
+# ───── Man-page Style Help ─────────────────────────────
+read -r -d '' 'MSG[help_text]' <<'EOF'
+NAME
+    Proton Drive Backup
+
+DESCRIPTION
+    One-way backup tool for local directories and files with the remote
+    Proton Drive storage, including upload of new/changed files, and
+    deletion of orphaned remote files. The local system is the single
+    source of truth; no local deletions are executed.
+    Change detection is based on local MD5 checksum comparison against
+    a persistent database. No remote hash data is required.
+    This is an unofficial community tool. Proton AG is not responsible
+    for its functionality or maintenance. Proton Drive is a trademark
+    of Proton AG.
+
+REQUIREMENTS
+    - proton-drive CLI v0.4.6 or higher
+    - jq (JSON processor)
+    - md5sum (checksum utility)
+    - bash version 4.0 or higher
+    - tar
+
+USAGE
+    %s [OPTIONS]
+
+    OPTIONS
+        --dry-run     Display changes, no action taken.
+        --help        Show this help and exit.
+        --log         Open and follow runtime log; quit with Ctrl+C + Q.
+        --quiet       Run backup silently (for cron jobs).
+                      Console output: errors and summary only.
+        --reset-db    Reset checksum database and rebuild.
+        --schedule    Auto-schedule the cronjob
+                      (every %s minutes).
+        --unschedule  Remove the cronjob.
+        --verbose     Run backup with progress indicator.
+        --version     Show version information.
+
+LOGGING
+    Log file  %s
+    Rotation  Internal, run-based, logs archived with the next run.
+              %s rotated logs kept, oldest deleted).
+
+DELETE STRATEGY
+    Current mode  %s
+    Options       "trash" (recoverable) or
+                  "delete" (permanent).
+    Configure via DELETE_MODE variable in config file.
+
+DISCLAIMER
+    This script is provided "as is"; there is NO WARRANTY at all. Use at
+    your own risk. Licensed under the MIT License.
+
+AUTHOR
+    Copyright (c) 2026 RML Tec Dev
+    (not affiliated with Proton AG)
+    rmltecdev@pm.me
+EOF
+
+MSG[help_close]="Help closed."
+MSG[help_open]="Opening help..."
+
+# ───── Composite templates (printf, %s placeholders) ───
+MSG[tmpl_db_built]="Database built: %s files, %s total."
+MSG[tmpl_prev_db_loaded]="Loaded previous database (%s entries) for change detection."
+MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped."
+MSG[tmpl_delete_phase]="Delete phase: %s %s."
+MSG[tmpl_lock_running]="Another instance is running (PID: %s)."
+MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."
+MSG[tmpl_usage_hint]="          Run '%s --help' for available options."
+MSG[tmpl_menu_invoke]="Invoke %s with one of these options:"
+
+# ───── Interactive menu ────────────────────────────────
+PAD_MENU_WIDTH="18"  # longest: "Script", "Database"… adjust to language
+MSG[menu_status]="Status"
+MSG[menu_cron_label]="Cronjob scheduled"
+MSG[menu_db_label]="Database entries"
+MSG[menu_files_tracked]="files tracked"
+MSG[menu_logsize_label]="Log file size"
+MSG[menu_paths]="Paths"
+MSG[menu_script]="Script"
+MSG[menu_database]="Database"
+MSG[menu_logdir]="Log directory"
+MSG[opt_dry_run]="Display changes, no action taken"
+MSG[opt_help]="Show description, usage and license"
+MSG[opt_log]="Open and follow runtime log; quit with Ctrl+C + Q"
+MSG[opt_quiet]="Run backup silently (for cron jobs)"
+MSG[opt_reset_db]="Reset checksum database and rebuild"
+MSG[opt_schedule]="Auto-schedule the cronjob"
+MSG[opt_unschedule]="Remove the cronjob"
+MSG[opt_verbose]="Run backup with progress indicator"
+MSG[opt_version]="Show version information"
