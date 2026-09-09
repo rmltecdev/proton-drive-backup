@@ -38,6 +38,10 @@ Renaming is not atomic in the CLI world: it registers as delete plus upload. In 
 
 The official Proton Drive CLI does not offer recursive folder deletion of empty directories. This is a documented CLI limitation.  
 
+### Why does --help/--version fail with a configuration error?
+
+The script validates its entire configuration contract before any mode runs — a partially working script that fails mid-operation is worse than one that refuses to start. Fix the reported config value (see the example config), then all modes become available at once.
+
 ## Sizing and Fair Use
 
 ### Can I back up my full 2 TB storage?

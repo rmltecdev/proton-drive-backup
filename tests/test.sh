@@ -8,7 +8,7 @@
 # Passes only when ALL critical checks are green.
 # Exit code 0 = safe to commit.
 #
-# Usage:  ./smoketest.sh
+# Usage:  ./test/test.sh
 #
 # ──────────────────────────────────────────────────────────
 
@@ -179,83 +179,90 @@ for fn in acquire_lock release_lock progress_init progress_teardown \
     fi
 done
 
-# ═══ SECTION 8: Localization contract ═════════════════════
+# ═══ SECTION 8: Localization contract (all locales) ══════
 
 section "Localization alignment"
 
-# Directive 1: Discover ALL two-letter locale files (.en, .de, .th, ...)
-mapfile -t locale_files < <(compgen -G "${SCRIPT_DIR}/${SCRIPT_NAME}.[a-z][a-z]")
-[[ ${#locale_files[@]} -gt 0 ]] || { fail "No localization files found"; }
+# Discovery: ALL two-letter locale files; fresh MSG scope per file —
+# sourcing several files into one associative array would leak
+# earlier keys and mask gaps.
+mapfile -t locale_files < <(compgen -G "./proton-drive-backup.[a-z][a-z]")
+
+if [[ ${#locale_files[@]} -eq 0 ]]; then
+    print_fail "No localization files found"
+else
+    for loc_file in "${locale_files[@]}"; do
+        lang="${loc_file##*.}"
+        unset MSG
+        declare -A MSG
+        # shellcheck disable=SC1090
+        source "$loc_file"
+
+        # ── Key parity: every key in .en must exist here ──
+        parity_bad=0
+        while read -r key; do
+            [[ -n "${MSG[$key]+x}" ]] \
+                || { print_fail "[$lang] Missing key: $key"; parity_bad=1; }
+        done < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\]=)' "$LOC_FILE" | sort -u)
+        [[ $parity_bad -eq 0 ]] && print_pass "[$lang] Key parity vs .en"
+
+        # ── PAD_* present and numeric ──
+        pad_bad=0
+        while read -r padline; do
+            key=$(printf '%s\n' "$padline" | grep -oP '^PAD_\K[A-Z_0-9]+(?==)')
+            val=$(printf '%s\n' "$padline" | grep -oP '=\K"[0-9]+"')
+            [[ -n "$val" ]] || { print_fail "[$lang] PAD_ value not numeric: $key"; pad_bad=1; }
+        done < <(grep '^PAD_' "$loc_file")
+        [[ $pad_bad -eq 0 ]] && print_pass "[$lang] All PAD_ widths numeric"
+
+        # ── Locale printf safety: no literal % outside %s ──
+        bad_pct=$(grep -P '%(?!s)' "$loc_file" \
+                  | grep 'MSG\[' | grep -v 'tmpl_\|fail_config_syntax\|fail_config_hint' || true)
+        if [[ -n "$bad_pct" ]]; then
+            print_fail "[$lang] Locale value contains non-%s percent escape"
+            printf '%s\n' "$bad_pct" | sed 's/^/      /'
+        else
+            print_pass "[$lang] No stray % escapes in locale values"
+        fi
+
+        # ── Templates must carry placeholders (pattern B contract) ──
+        tmpl_count=0
+        tmpl_bad=0
+        while read -r key; do
+            tmpl_count=$((tmpl_count + 1))
+            [[ -n "${MSG[$key]}" ]] && [[ "${MSG[$key]}" != *%s* ]] \
+                && { print_fail "[$lang] tmpl_ key without %s: $key"; tmpl_bad=1; }
+        done < <(grep -oP 'MSG\[\K(tmpl_[a-z_0-9]+)(?=\]=)' "$loc_file" | sort -u)
+        [[ $tmpl_bad -eq 0 ]] && [[ $tmpl_count -gt 0 ]] \
+            && print_pass "[$lang] $tmpl_count template keys carry %s"
+
+        # ── Dynamic families complete in THIS locale ──
+        dyn_bad=0
+        for mode in trash delete; do
+            [[ -n "${MSG[mode_verb_$mode]+x}" ]] \
+                || { print_fail "[$lang] Missing family member: mode_verb_$mode"; dyn_bad=1; }
+        done
+        [[ $dyn_bad -eq 0 ]] && print_pass "[$lang] Dynamic key family (mode_verb_*) complete"
+    done
+fi
+
+# Corpse keys: keys in a locale unused by the main script — except
+# members of dynamic families (resolved at runtime via ${VAR}).
+mapfile -t dyn_prefixes < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\$\{)' "$MAIN_SCRIPT" | sort -u)
 
 for loc_file in "${locale_files[@]}"; do
     lang="${loc_file##*.}"
-
-    # Fresh MSG scope per file: sourcing several files into one
-    # associative array would leak earlier keys and mask gaps.
-    unset MSG
-    declare -A MSG
-    # shellcheck disable=SC1090
-    source "$loc_file"
-
-    # ── All former .en-only checks run HERE, message prefix "[$lang]" ──
-    # - key parity vs main script (bidirectional)
-    # - PAD_* present and numeric
-    # - tmpl_* placeholder count == argument count in script
-    # - no zero-width residue after padding rules
+    corpse_bad=0
+    while read -r key; do
+        grep -q "MSG\[$key\]" "$MAIN_SCRIPT" && continue
+        covered=0
+        for dp in "${dyn_prefixes[@]}"; do
+            [[ "$key" == "$dp"* ]] && { covered=1; break; }
+        done
+        [[ $covered -eq 0 ]] && { print_fail "[$lang] Corpse key: $key"; corpse_bad=1; }
+    done < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\]=)' "$loc_file" | sort -u)
+    [[ $corpse_bad -eq 0 ]] && print_pass "[$lang] No corpse keys"
 done
-
-# Dynamic key families: MSG[<prefix>_${VAR}] resolves at runtime.
-# Validate against the option-value contract instead of static greps.
-dyn_ok=0
-for mode in trash delete; do
-    grep -q "MSG\[mode_verb_$mode\]=" "$LOC_FILE" \
-        || { print_fail "Missing dynamic family member: mode_verb_$mode"; dyn_ok=1; }
-done
-[[ $dyn_ok -eq 0 ]] && print_pass "Dynamic key family (mode_verb_*) complete"
-
-# Directive 2: no corpse keys — except members of dynamic families
-dyn_prefixes=$(grep -oP 'MSG\[\K[a-z_0-9]+(?=\$\{)' "$MAIN_SCRIPT" | sort -u)
-corpses=0
-while read -r key; do
-    grep -q "MSG\[$key\]" "$MAIN_SCRIPT" && continue
-    covered=0
-    for dp in $dyn_prefixes; do
-        [[ "$key" == "$dp"* ]] && { covered=1; break; }
-    done
-    [[ $covered -eq 0 ]] && { print_fail "Corpse key in .en: $key"; corpses=1; }
-done < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\]=)' "$LOC_FILE" | sort -u)
-[[ $corpses -eq 0 ]] && print_pass "No corpse keys in .en"
-
-# Locale printf safety: no literal % outside %s placeholders
-# (this replaces blanket SC2059 suppression with a real check)
-bad_pct=$(grep -P '="(?:[^%]|%s)*%(?!s)[^"]*"' "$LOC_FILE" | grep -v '\$' || true)
-if [[ -n "$bad_pct" ]]; then
-    print_fail "Locale value contains non-%s percent escape:"
-    echo "$bad_pct" | sed 's/^/      /'
-else
-    print_pass "No stray % escapes in locale values"
-fi
-
-# PAD_* widths must be pure numbers (type separation: locales
-# carry VALUES, scripts own format strings)
-while read -r padline; do
-    key=$(echo "$padline" | grep -oP '^PAD_\K[A-Z_0-9]+(?==)')
-    val=$(echo "$padline" | grep -oP '"\K[0-9]+(?=")')
-    [[ -n "$val" ]] || print_fail "PAD_ value not numeric: $key"
-done < <(grep '^PAD_' "$LOC_FILE")
-print_pass "All PAD_ widths numeric"
-
-# Templates must carry placeholders (pattern B contract)
-tmpl_ok=0
-while read -r line; do
-    key=$(echo "$line" | grep -oP 'MSG\[\K[a-z_0-9]+(?=\])')
-    if [[ "$line" == *%s* ]]; then
-        tmpl_ok=$((tmpl_ok + 1))
-    else
-        print_fail "tmpl_ key without %s placeholder: $key"
-    fi
-done < <(grep 'MSG\[tmpl_' "$LOC_FILE")
-[[ $tmpl_ok -gt 0 ]] && print_pass "$tmpl_ok template keys carry %s placeholders"
 
 # ═══ SECTION 9: Configuration example contract ═══════════
 

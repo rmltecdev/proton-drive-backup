@@ -16,16 +16,15 @@ MSG[status_preparing]="กำลังเตรียมข้อมูล..."
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="18"
 MSG[info_config_header]="การตั้งค่าการสำรองข้อมูล"
-MSG[info_conflict_strategy]="กลยุทธ์ความขัดแย้งy "
-MSG[info_delete_mode]="ลบโหมด"
+MSG[info_conflict_strategy]="กลยุทธ์ความขัดแย้ง"
+MSG[info_delete_mode]="โหมดการลบ"
 MSG[info_dry_run]="การดำเนินงานทดสอบ"
 MSG[info_reset_db]="รีเซ็ตฐานข้อมูลเช็คซัม"
 MSG[quiet_notice]="การสำรองข้อมูลทำงานในพื้นหลัง ติดตามความคืบหน้ากับ"
-MSG[fail_no_source_dirs]="ไม่มีการกำหนดค่าไดเร็กทอรีแหล่งที่มา"
 
 # ───── Dependencies and session ────────────────────────
 MSG[fail_dep_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
-MSG[info_deps_ok]="พอใจการพึ่งพาทั้งหมด"
+MSG[info_deps_ok]="การพึ่งพาทั้งหมดครบถ้วน"
 MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์..."
 MSG[info_session_valid]="เซสชั่นถูกต้อง"
 MSG[info_auth_required]="จำเป็นต้องมีการตรวจสอบสิทธิ์"
@@ -45,11 +44,11 @@ MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
 MSG[warn_db_empty]="ไม่พบไฟล์ในไดเรกทอรีต้นทาง ตรวจสอบการกำหนดค่าใน"
 MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่..."
 MSG[info_lookup_build]="กำลังสร้างตารางการค้นหาการตรวจจับการเปลี่ยนแปลง..."
-MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่...."
-MSG[label_scan]="สแกน"
-MSG[label_load]="โหลด"
-MSG[label_process]="กระบวนการ"
-MSG[label_delete]="ลบ"
+MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่..."
+MSG[label_scan]="กำลังสแกน"
+MSG[label_load]="กำลังโหลด"
+MSG[label_process]="กำลังประมวลผล"
+MSG[label_delete]="ลบอย่าง (ถาวร)"
 
 # ───── Upload phase ────────────────────────────────────
 MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า..."
@@ -59,7 +58,7 @@ MSG[info_uploaded]="ประมวลผลแล้ว"
 # ───── Delete phase ────────────────────────────────────
 MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง..."
 MSG[info_no_orphans]="ไม่มีไฟล์ที่ถูกละเลยที่จะลบ"
-MSG[mode_verb_trash]="ทิ้งขยะอย่างกู้คืนได้"
+MSG[mode_verb_trash]="ย้ายไปถังขยะ (กู้คืนได้)"
 MSG[mode_verb_delete]="ลบอย่างถาวร"
 
 # ───── Lock file management ────────────────────────────
@@ -120,9 +119,9 @@ read -r -d '' 'MSG[help_text]' <<'EOF'
     โปรตอน ไดรฟ์ เป็นเครื่องหมายการค้า ของบริษัทโปรตอน เอจี
 
 ความต้องการ
-    - proton-drive CLI v0.4.6 or higher
-    - jq (JSON processor)
-    - md5sum (checksum utility)
+    - proton-drive CLI v0.4.6 หรือสูงกว่า
+    - jq (ตัวประมวลผล JSON)
+    - md5sum (ยูทิลิตี้เช็คซัม)
     - bash version 4.2 หรือสูงกว่า
     - tar
 
@@ -153,8 +152,8 @@ read -r -d '' 'MSG[help_text]' <<'EOF'
     กำหนดค่าผ่านตัวแปร DELETE_MODE ในไฟล์กำหนดค่า
 
 ข้อจำกัดความรับผิดชอบ
-    สคริปต์นี้ให้บริการ "ตามสภาพ" ไม่มีการรับประกันใดๆ ทั้งสิ้น ข้อจำกัดความรับ 
-    ใช้งานด้วยความเสี่ยงของคุณเอง ทดสอบอย่างละเอียดถี่ถ้วน
+    สคริปต์นี้ให้บริการ "ตามสภาพ" ไม่มีการรับประกันใดๆ ทั้งสิ้น ใช้งานด้วยความเสี่ยงของคุณเอง
+    ทดสอบอย่างละเอียดถี่ถ้วน
 
 ผู้เขียน
     ลิขสิทธิ์ (c) 2569 RML Tec Dev
@@ -165,7 +164,7 @@ read -r -d '' 'MSG[help_text]' <<'EOF'
     ได้รับอนุญาตภายใต้สัญญาอนุญาต MIT
 EOF
 
-MSG[help_close]="ช่วยปิดครับ"
+MSG[help_close]="ปิดความช่วยเหลือแล้ว"
 MSG[help_open]="กำลังเปิดความช่วยเหลือ..."
 
 # ───── Interactive menu ────────────────────────────────
@@ -196,9 +195,9 @@ MSG[fail_val_delete]="trash หรือ delete"
 MSG[fail_val_conflict]="replace หรือ skip"
 MSG[fail_val_cron_positive]="จำนวนเต็มบวก"
 MSG[fail_val_cron_divisible]="1-60 หรือหารด้วย 60 ลงตัว"
-MSG[fail_val_source_dirs]="ต้องระบุไดเรกทอรีต้นทางอย่างน้อยหนึ่งรายการ"
-MSG[fail_val_keep_log_runs]="ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป"
-MSG[fail_val_source_base]="ต้องเป็นพาธแบบสัมบูรณ์ที่ขึ้นต้นด้วย /"
+MSG[fail_val_source_dirs]="ไดเรกทอรีต้นทางอย่างน้อยหนึ่งรายการ"
+MSG[fail_val_keep_log_runs]="จำนวนเต็มตั้งแต่ 1 ขึ้นไป"
+MSG[fail_val_source_base]="พาธแบบสัมบูรณ์ที่ขึ้นต้นด้วย /"
 MSG[fail_config_missing]="ไม่พบไฟล์การตั้งค่า:"
 MSG[fail_config_hint]="คัดลอกไฟล์ตั้งค่าตัวอย่างที่ %s แล้วปรับแก้ให้เหมาะสม"
 MSG[fail_config_syntax]="พบข้อผิดพลาดไวยากรณ์ในไฟล์กำหนดค่า: %s"
@@ -206,7 +205,7 @@ MSG[fail_config_syntax]="พบข้อผิดพลาดไวยากร�
 # ───── Composite templates (printf, %s placeholders) ───
 MSG[tmpl_db_built]="ฐานข้อมูลที่สร้าง: %s ไฟล์ รวม %s"
 MSG[tmpl_prev_db_loaded]="โหลดฐานข้อมูลก่อนหน้า (%s รายการ) เพื่อการตรวจจับการเปลี่ยนแปลง"
-MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไป"
+MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไปแล้ว"
 MSG[tmpl_delete_phase]="ลบเฟส %s %s"
 MSG[tmpl_lock_running]="อินสแตนซ์อื่นกำลังทำงานอยู่ (PID: %s)"
 MSG[tmpl_cron_interval]="การสำรองข้อมูลจะทำงานทุกๆ %s นาทีในโหมดเงียบ"

@@ -1432,7 +1432,6 @@ cleanup() {
 # ───── Main Execution ─────────────────────────────────
 
 main() {
-
     # Locale first (localized errors for unknown options), then args,
     # then config (values are only needed AFTER parse_args succeeded).
     if [[ -f "$LOCALE_FILE" && "$SYSTEM_LANG" != "en" ]]; then
@@ -1455,12 +1454,12 @@ main() {
         exit 1 ;; esac
 
     case "${UPLOAD_CONFLICT_STRATEGY:-}" in replace|skip) ;; *)
-    # shellcheck disable=SC2059
+        # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "UPLOAD_CONFLICT_STRATEGY" "${UPLOAD_CONFLICT_STRATEGY:-}" "${MSG[fail_val_conflict]}")"
         exit 1 ;; esac
 
     if [[ ! "${CRON_INTERVAL_MINUTES:-}" =~ ^[1-9][0-9]*$ ]]; then
-    # shellcheck disable=SC2059
+        # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CRON_INTERVAL_MINUTES" "${CRON_INTERVAL_MINUTES:-}" "${MSG[fail_val_cron_positive]}")"
         exit 1
     elif (( CRON_INTERVAL_MINUTES > 60 && CRON_INTERVAL_MINUTES % 60 != 0 )); then

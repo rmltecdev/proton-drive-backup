@@ -11,6 +11,8 @@ by `test.sh` wherever technically checkable.
    `%s` placeholders whose positions must match across all languages.
    The script passes arguments positionally — a reordered placeholder
    is a mistranslation, not a style choice.
+   Sole exception: `fail_config_syntax` (legacy name, kept for
+   compatibility — see "Config validation").
 2. **`PAD_*` values are numeric and language-specific.** Column width
    lives in `PAD_<SECTION>_WIDTH`, never as trailing spaces or filler
    characters inside `MSG[...]` strings.
@@ -27,14 +29,14 @@ by `test.sh` wherever technically checkable.
 
 ## PAD Variables
 
-| Variable           | Consumer               | Notes                          |
+| Variable           | Consumer               | Values (.en / .de / .th)       |
 |--------------------|------------------------|--------------------------------|
-| PAD_CONFIG_WIDTH   | backup config block    | .en 24 / .de 33                |
-| PAD_VERSION_WIDTH  | `show_version()`       | .en 18 / .de 23                |
-| PAD_SUMMARY_WIDTH  | `print_summary()`      | .en 26 / .de 32                |
-| PAD_STATUS_WIDTH   | menu status section    | .en 18 / .de 22                |
-| PAD_OPTION_WIDTH   | menu options section   | language-independent: 13       |
-| PAD_MENU_WIDTH     | menu paths section     | .en 14 / .de 21                |
+| PAD_CONFIG_WIDTH   | backup config block    | 24 / 33 / 18                   |
+| PAD_VERSION_WIDTH  | `show_version()`       | 18 / 23 / 14                   |
+| PAD_SUMMARY_WIDTH  | `print_summary()`      | 26 / 32 / 32                   |
+| PAD_STATUS_WIDTH   | menu status section    | 18 / 22 / 18                   |
+| PAD_OPTION_WIDTH   | menu options section   | 13 (fixed — option strings are identical ASCII across locales) |
+| PAD_MENU_WIDTH     | menu paths section     | 14 / 21 / 14                   |
 
 ## Config validation
 
@@ -49,12 +51,14 @@ by `test.sh` wherever technically checkable.
 | fail_val_keep_log_runs | Constant | — | Reason: KEEP_LOG_RUNS not a positive integer |
 | fail_val_source_base | Constant | — | Reason: SOURCE_BASE empty or not absolute |
 | fail_config_missing | Constant | — | Leading phrase; config path printed below by caller |
-| fail_config_hint | Constant | — | Points to .cfg.example, printed with fail_config_missing |
+| fail_config_hint | Template | 1× %s | Runtime-derived .cfg.example path, printed with fail_config_missing |
+| fail_config_syntax | Template | 1× %s | bash -n parser output header; legacy name kept — documented exception to rule 1 |
 
 > **Constant keys** hold plain values without placeholders. They are
 > consumed as printf arguments by tmpl_fail_invalid_value (reason slot)
 > or echoed directly — locales must never contain literal % characters
-> (enforced by smoke test).
+> (enforced by smoke test). Template keys (`tmpl_*`, plus the two
+> `fail_config_*` templates above) DO carry placeholders by design.
 
 ## Key Catalog
 
@@ -63,7 +67,7 @@ by `test.sh` wherever technically checkable.
 
 ### Initialization and configuration
 `info_config_header`, `info_conflict_strategy`, `info_delete_mode`,
-`info_dry_run`, `info_reset_db`, `quiet_notice`, `fail_no_source_dirs`
+`info_dry_run`, `info_reset_db`, `quiet_notice`
 
 ### Dependencies and session
 `fail_dep_missing`, `info_deps_ok`, `info_session_check`,
@@ -78,6 +82,9 @@ by `test.sh` wherever technically checkable.
 `warn_db_empty`, `info_no_db_found`, `info_lookup_build`,
 `warn_rebuild_db`, `label_scan`, `label_load`, `label_process`,
 `label_delete`
+   Progress-bar verbs, translated in progressive form
+   (en: -ing, de: unflected verb, th: กำลัง-construction). A new
+   phase REQUIRES a new `label_*` member in every locale file.
 
 ### Upload phase
 `info_compare_upload`, `info_no_local_files`, `info_uploaded`
@@ -123,7 +130,8 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 `tmpl_db_built` (2), `tmpl_prev_db_loaded` (1),
 `tmpl_upload_phase` (2), `tmpl_delete_phase` (2),
 `tmpl_lock_running` (1), `tmpl_cron_interval` (1),
-`tmpl_usage_hint` (1), `tmpl_menu_invoke` (1)
+`tmpl_usage_hint` (1), `tmpl_menu_invoke` (1),
+`tmpl_fail_invalid_value` (3)
    Number in parentheses = argument count; placeholder positions
    must be identical across languages.
 
@@ -138,6 +146,8 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 ## Removals
 - `info_initialized` (removed v1.0.0 pre-release; consumer was dropped
   from the script — locale files must not carry it)
+- `fail_no_source_dirs` (superseded v1.0.0 pre-release by the
+  `tmpl_fail_invalid_value` family + `fail_val_source_dirs`)
 
 ## Adding a new language
 1. Copy `proton-drive-backup.en` → `proton-drive-backup.<lang>`
