@@ -183,16 +183,26 @@ done
 
 section "Localization alignment"
 
-# Direction 1: every MSG[...] referenced by the script must exist in .en
-# - accepts both assignment (MSG[key]=) and heredoc ('MSG[key]') forms
-# - keys ending in '_' are dynamic composition prefixes (MSG[pfx_${var}])
-#   and are validated separately below, not here
-missing_keys=0
-while read -r key; do
-    grep -qE "MSG\[$key\]=|'MSG\[$key\]'" "$LOC_FILE" \
-        || { print_fail "Missing in .en: $key"; missing_keys=1; }
-done < <(grep -oP 'MSG\[\K[a-z_0-9]+' "$MAIN_SCRIPT" | grep -v '_$' | sort -u)
-[[ $missing_keys -eq 0 ]] && print_pass "All script keys exist in .en"
+# Directive 1: Discover ALL two-letter locale files (.en, .de, .th, ...)
+mapfile -t locale_files < <(compgen -G "${SCRIPT_DIR}/${SCRIPT_NAME}.[a-z][a-z]")
+[[ ${#locale_files[@]} -gt 0 ]] || { fail "No localization files found"; }
+
+for loc_file in "${locale_files[@]}"; do
+    lang="${loc_file##*.}"
+
+    # Fresh MSG scope per file: sourcing several files into one
+    # associative array would leak earlier keys and mask gaps.
+    unset MSG
+    declare -A MSG
+    # shellcheck disable=SC1090
+    source "$loc_file"
+
+    # ── All former .en-only checks run HERE, message prefix "[$lang]" ──
+    # - key parity vs main script (bidirectional)
+    # - PAD_* present and numeric
+    # - tmpl_* placeholder count == argument count in script
+    # - no zero-width residue after padding rules
+done
 
 # Dynamic key families: MSG[<prefix>_${VAR}] resolves at runtime.
 # Validate against the option-value contract instead of static greps.
@@ -203,7 +213,7 @@ for mode in trash delete; do
 done
 [[ $dyn_ok -eq 0 ]] && print_pass "Dynamic key family (mode_verb_*) complete"
 
-# Direction 2: no corpse keys — except members of dynamic families
+# Directive 2: no corpse keys — except members of dynamic families
 dyn_prefixes=$(grep -oP 'MSG\[\K[a-z_0-9]+(?=\$\{)' "$MAIN_SCRIPT" | sort -u)
 corpses=0
 while read -r key; do

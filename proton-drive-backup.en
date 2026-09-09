@@ -15,7 +15,6 @@ MSG[status_preparing]="Preparing data..."
 
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="24"
-MSG[info_initialized]="Proton Drive backup initialized."
 MSG[info_config_header]="Backup Configuration:"
 MSG[info_conflict_strategy]="Conflict strategy"
 MSG[info_delete_mode]="Delete mode"
@@ -127,7 +126,7 @@ REQUIREMENTS
     - proton-drive CLI v0.4.6 or higher
     - jq (JSON processor)
     - md5sum (checksum utility)
-    - bash version 4.0 or higher
+    - bash version 4.2 or higher
     - tar
 
 USAGE
@@ -149,12 +148,12 @@ USAGE
 LOGGING
     Log file  %s
     Rotation  Internal, run-based, logs archived with the next run.
-              %s rotated logs kept, oldest deleted).
+              %s rotated logs kept, oldest deleted.
 
 DELETE STRATEGY
     Current mode  %s
-    Options       "trash" (recoverable) or
-                  "delete" (permanent).
+    Options      "trash"  (recoverable) or
+                 "delete" (permanent).
     Configure via DELETE_MODE variable in config file.
 
 DISCLAIMER
@@ -165,23 +164,18 @@ AUTHOR
     Copyright (c) 2026 RML Tec Dev
     (not affiliated with Proton AG)
     rmltecdev@pm.me
+
+LICENSE
+    Licensed under the MIT License.
 EOF
 
 MSG[help_close]="Help closed."
 MSG[help_open]="Opening help..."
 
-# ───── Composite templates (printf, %s placeholders) ───
-MSG[tmpl_db_built]="Database built: %s files, %s total."
-MSG[tmpl_prev_db_loaded]="Loaded previous database (%s entries) for change detection."
-MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped."
-MSG[tmpl_delete_phase]="Delete phase: %s %s."
-MSG[tmpl_lock_running]="Another instance is running (PID: %s)."
-MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."
-MSG[tmpl_usage_hint]="          Run '%s --help' for available options."
-MSG[tmpl_menu_invoke]="Invoke %s with one of these options:"
-
 # ───── Interactive menu ────────────────────────────────
-PAD_MENU_WIDTH="18"  # longest: "Script", "Database"… adjust to language
+PAD_STATUS_WIDTH="18"   # adjust to language
+PAD_OPTION_WIDTH="13"   # adjust to language
+PAD_MENU_WIDTH="14"     # adjust to language
 MSG[menu_status]="Status"
 MSG[menu_cron_label]="Cronjob scheduled"
 MSG[menu_db_label]="Database entries"
@@ -195,8 +189,31 @@ MSG[opt_dry_run]="Display changes, no action taken"
 MSG[opt_help]="Show description, usage and license"
 MSG[opt_log]="Open and follow runtime log; quit with Ctrl+C + Q"
 MSG[opt_quiet]="Run backup silently (for cron jobs)"
-MSG[opt_reset_db]="Reset checksum database and rebuild"
+MSG[opt_reset_db]="Reset MD5 checksum database and rebuild"
 MSG[opt_schedule]="Auto-schedule the cronjob"
 MSG[opt_unschedule]="Remove the cronjob"
 MSG[opt_verbose]="Run backup with progress indicator"
 MSG[opt_version]="Show version information"
+
+# ── Config validation ──
+MSG[fail_val_delete]="trash or delete"
+MSG[fail_val_conflict]="replace or skip"
+MSG[fail_val_cron_positive]="a positive integer"
+MSG[fail_val_cron_divisible]="1-60, or a multiple of 60"
+MSG[fail_val_source_dirs]="must define at least one source directory"
+MSG[fail_val_keep_log_runs]="must be a whole number of 1 or greater"
+MSG[fail_val_source_base]="must be an absolute path starting with /"
+MSG[fail_config_missing]="Configuration file not found:"
+MSG[fail_config_hint]="Kopiere die Beispielkonfiguration unter %s und passe sie an."
+MSG[fail_config_syntax]="Syntax error in configuration file: %s"
+
+# ───── Composite templates (printf, %s placeholders) ───
+MSG[tmpl_db_built]="Database built: %s files, %s total."
+MSG[tmpl_prev_db_loaded]="Loaded previous database (%s entries) for change detection."
+MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped."
+MSG[tmpl_delete_phase]="Delete phase: %s %s."
+MSG[tmpl_lock_running]="Another instance is running (PID: %s)."
+MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."
+MSG[tmpl_usage_hint]="Run '%s --help' for available options."
+MSG[tmpl_menu_invoke]="Invoke %s with one of these options:"
+MSG[tmpl_fail_invalid_value]="Invalid %s: '%s' (allowed: %s)."

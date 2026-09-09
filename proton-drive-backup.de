@@ -15,7 +15,6 @@ MSG[status_preparing]="Daten werden vorbereitet..."
 
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="33"
-MSG[info_initialized]="Proton Drive Backup initialisiert."
 MSG[info_config_header]="Backup Konfiguration:"
 MSG[info_conflict_strategy]="Konfliktstrategie"
 MSG[info_delete_mode]="Löschmodus"
@@ -31,7 +30,7 @@ MSG[info_session_check]="Überprüfung der Sitzungsauthentifizierung..."
 MSG[info_session_valid]="Sitzung ist gültig."
 MSG[info_auth_required]="Authentifizierung erforderlich."
 MSG[warn_dry_run_auth]="Authentifizierung im Testlaufmodus gescheitert. Datensicherung übersprungen."
-MSG[info_login_instruction]="Bitte ausführen: "
+MSG[info_login_instruction]="Bitte ausführen:"
 MSG[info_login_success]="Anmeldung erfolgreich."
 MSG[fail_login_failed]="Authentifizierung gescheitert."
 
@@ -60,8 +59,8 @@ MSG[info_uploaded]="Verarbeitet:"
 # ───── Delete phase ────────────────────────────────────
 MSG[info_compare_delete]="Suche nach lokal gelöschten Dateien..."
 MSG[info_no_orphans]="Keine verwaisten Dateien zum Löschen."
-MSG[mode_verb_trash]="Wiederherstellbar gelöscht      "
-MSG[mode_verb_delete]="Permanent gelöscht              "
+MSG[mode_verb_trash]="Wiederherstellbar gelöscht"
+MSG[mode_verb_delete]="Permanent gelöscht"
 
 # ───── Lock file management ────────────────────────────
 MSG[warn_lock_stale]="Entferne veraltete Sperrdate..."
@@ -100,8 +99,8 @@ MSG[info_cli_not_installed]="Proton Drive CLI nicht installiert."
 
 # ───── Print Summary ───────────────────────────────────
 PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string
-MSG[sum_uploaded]="Hochgeladen (neu oder geändert) "
-MSG[sum_skipped]="Übersprungen (unverändert)      "
+MSG[sum_uploaded]="Hochgeladen (neu oder geändert)"
+MSG[sum_skipped]="Übersprungen (unverändert)"
 MSG[sum_errors]="Fehler"
 MSG[sum_warnings]="Warnungen"
 MSG[sum_completed_ok]="Datensicherung vollständig"
@@ -128,7 +127,7 @@ REQUIREMENTS
     - proton-drive CLI v0.4.6 oder höher
     - jq (JSON-Verarbeitung)
     - md5sum (Prüfsummen-Dienstprogramm)
-    - bash Version 4.0 oder höher
+    - bash Version 4.2 oder höher
     - tar
 
 USAGE
@@ -153,12 +152,12 @@ LOGGING
     Rotation        Interne, laufbasierte Protokolle werden mit dem 
                     nächsten Lauf archiviert.
                     %s rotierte Protokolle aufbewahrt,
-                    älteste gelöscht).
+                    älteste gelöscht.
 
 LÖSCHSTRATEGIE
     Aktueller Modus  %s
-    Optionen         "trash" (wiederherstellbar) oder
-                     "delete" (permanent).
+    Optionen        "trash"  (wiederherstellbar) oder
+                    "delete" (permanent).
     Konfiguration über Variable DELETE_MODE in der Konfigurationsdatei.
 
 HAFTUNGSAUSSCHLUSS
@@ -169,28 +168,22 @@ AUTOR
     Copyright © 2026 RML Tec Dev
     (nicht verbunden mit Proton AG)
     rmltecdev@pm.me
+LIZENZ
+    Lizenziert unter der MIT-Lizenz.
 EOF
 
 MSG[help_close]="Hilfe geschlossen."
 MSG[help_open]="Öffne Hilfe..."
 
-# ───── Composite templates (printf, %s placeholders) ───
-MSG[tmpl_db_built]="Datenbank erstellt: %s Dateien, %s gesamt."
-MSG[tmpl_prev_db_loaded]="Vorherige Datenbank (%s Einträge) zur Änderungsermittlung geladen."
-MSG[tmpl_upload_phase]="Upload-Phase: %s hochgeladen, %s übersprungen."
-MSG[tmpl_delete_phase]="Löschphase: %s %s."
-MSG[tmpl_lock_running]="Eine andere Instanz läuft bereits. (PID: %s)."
-MSG[tmpl_cron_interval]="Datensicherung wird alle %s Minuten im stillen Modus ausgeführt."
-MSG[tmpl_usage_hint]="          Führen Sie '%s --help' aus, um verfügbare Optionen anzuzeigen."
-MSG[tmpl_menu_invoke]="Rufen Sie %s mit einer dieser Optionen auf:"
-
 # ───── Interactive menu ────────────────────────────────
-PAD_MENU_WIDTH="22"  # longest: "Script", "Database"… adjust to language
+PAD_STATUS_WIDTH="22"   # adjust to language
+PAD_OPTION_WIDTH="13"   # adjust to language
+PAD_MENU_WIDTH="21"     # adjust to language
 MSG[menu_status]="Status"
 MSG[menu_cron_label]="Cronjob geplant"
-MSG[menu_db_label]="Datenbankeinträge     "
+MSG[menu_db_label]="Datenbankeinträge"
 MSG[menu_files_tracked]="Dateien überwacht"
-MSG[menu_logsize_label]="Protokolldateigröße   "
+MSG[menu_logsize_label]="Protokolldateigröße"
 MSG[menu_paths]="Pfade"
 MSG[menu_script]="Skript"
 MSG[menu_database]="Datenbank"
@@ -199,8 +192,31 @@ MSG[opt_dry_run]="Zeige Änderungen; keine Aktion ausgeführt"
 MSG[opt_help]="Beschreibung, Nutzung und Lizenz anzeigen"
 MSG[opt_log]="Laufzeitprotokoll öffnen und verfolgen; mit Strg+C + Q beenden"
 MSG[opt_quiet]="Automatische Datensicherung (für Cronjobs)"
-MSG[opt_reset_db]="Prüfsummendatenbank zurücksetzen und neu erstellen"
+MSG[opt_reset_db]="MD5-Prüfsummendatenbank zurücksetzen und neu erstellen"
 MSG[opt_schedule]="Zeitgesteuerte Ausführung der Datensicherung planen."
 MSG[opt_unschedule]="Cronjob entfernen"
 MSG[opt_verbose]="Führe Datensicherung mit Fortschrittsanzeige aus"
 MSG[opt_version]="Versionsinformationen anzeigen"
+
+# ── Config validation ──
+MSG[fail_val_delete]="trash oder delete"
+MSG[fail_val_conflict]="replace oder skip"
+MSG[fail_val_cron_positive]="eine positive Ganzzahl"
+MSG[fail_val_cron_divisible]="1-60 oder ein Vielfaches von 60"
+MSG[fail_val_source_dirs]="muss mindestens ein Quellverzeichnis definieren"
+MSG[fail_val_keep_log_runs]="muss eine ganze Zahl von 1 oder größer sein"
+MSG[fail_val_source_base]="muss ein absoluter Pfad beginnend mit / sein"
+MSG[fail_config_missing]="Konfigurationsdatei nicht gefunden:"
+MSG[fail_config_hint]="Kopiere die Beispielkonfiguration unter %s und passe sie an."
+MSG[fail_config_syntax]="Syntaxfehler in der Konfigurationsdatei: %s"
+
+# ───── Composite templates (printf, %s placeholders) ───
+MSG[tmpl_db_built]="Datenbank erstellt: %s Dateien, %s gesamt."
+MSG[tmpl_prev_db_loaded]="Vorherige Datenbank (%s Einträge) zur Änderungsermittlung geladen."
+MSG[tmpl_upload_phase]="Upload-Phase: %s hochgeladen, %s übersprungen."
+MSG[tmpl_delete_phase]="Löschphase: %s %s."
+MSG[tmpl_lock_running]="Eine andere Instanz läuft bereits. (PID: %s)."
+MSG[tmpl_cron_interval]="Datensicherung wird alle %s Minuten im stillen Modus ausgeführt."
+MSG[tmpl_usage_hint]="Führen Sie '%s --help' aus, um verfügbare Optionen anzuzeigen."
+MSG[tmpl_menu_invoke]="Rufen Sie %s mit einer dieser Optionen auf:"
+MSG[tmpl_fail_invalid_value]="Ungültiger Wert für %s: '%s' (erlaubt: %s)."

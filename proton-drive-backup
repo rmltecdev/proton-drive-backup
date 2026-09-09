@@ -26,6 +26,8 @@
 #               directory as the script; languages 
 #               currently supported:
 #               [EN] English, generic (default fallback)
+#               [DE] German, generic
+#               [TH] Thai
 #
 # ──────────────────────────────────────────────────────
 
@@ -50,7 +52,7 @@ set -uo pipefail
 APP_NAME="≡ Proton Drive Backup ≡"
 
 VERSION="1.0.0"
-BUILD_DATE="2026-09-07"
+BUILD_DATE="2026-09-09"
 
 export PATH="$HOME/bin:$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -70,7 +72,6 @@ UPLOAD_SKIP_THUMBNAILS="--skip-thumbnails"
 REMOTE_BASE_PATH="/my-files/backup"
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/$SCRIPT_NAME"
 CONFIG_FILE="${CONFIG_DIR}/${SCRIPT_NAME}.cfg"
-CONFIG_FILE="${SCRIPT_NAME}.cfg"    # REMOVE BEFORE FLIGHT
 LOG_DIR="${XDG_STATE_HOME:-$HOME/.local/state}/$SCRIPT_NAME"
 RUNTIME_LOG="$LOG_DIR/runtime.log"
 TRANSFER_LOG="$LOG_DIR/transfer.log"
@@ -130,15 +131,41 @@ log() {
 
 
 
+# Thai zero-width combining marks: vowels/tone signs above and
+# below the baseline (U+0E31, U+0E34-U+0E3A, U+0E47-U+0E4E).
+# They render at width 0 but count in ${#var}. Defined ONCE.
+THAI_ZW_CHARS=$'\u0e31\u0e34\u0e35\u0e36\u0e37\u0e38\u0e39\u0e3a\u0e47\u0e48\u0e49\u0e4a\u0e4b\u0e4c\u0e4d\u0e4e'
+
+# ───── Display width: glyph count minus zero-width marks ─────
+# Requires an active UTF-8 locale: ${s:i:1} walks glyphs only
+# when the shell's multibyte mode is on (same dependency as
+# pad_to's glyph counting — C locale degrades to bytes).
+display_width() {
+    local s="$1" out="" i c
+    for (( i = 0; i < ${#s}; i++ )); do
+        c="${s:i:1}"
+        [[ "$THAI_ZW_CHARS" == *"$c"* ]] || out+="$c"
+    done
+    printf '%s' "${#out}"
+}
+
+
+
 # ───── Display-width-correct padding ─────────────────
 # bash's printf counts BYTES for %-*s field widths; UTF-8
 # multibyte glyphs (ä ö ü ß) therefore shift columns left
 # (2 bytes = 1 glyph). ${#var} counts GLYPHS — we measure
 # ourselves and let printf print only ASCII spaces.
 pad_to() {
-    local text="$1" width="$2" n
-    n=$(( width - ${#text} ))
+    local text width w n
+    
+    text="$1"
+    width="$2"
+
+    w=$(display_width "$text")
+    n=$(( width - w ))
     (( n < 0 )) && n=0
+
     printf "%s" "$text"
     printf "%*s" "$n" ""
 }
@@ -236,16 +263,33 @@ load_locale() {
 # ───── Load User Configuration ───────────────────────────────
 # User decisions live in an external config file (XDG), never in
 # the script itself — updates can never overwrite user settings.
-# Same abort contract as load_locale(): a missing file stops every
-# operating mode with a clear message.
+# Abort contract (same as load_locale()): a missing or syntactically
+# invalid file stops EVERY operating mode with a clear, localized
+# message.
 
 load_config() {
+    # TMP_ERR_FILE lives in CONFIG_DIR — it must exist in every
+    # operating mode (menu, --help, backup) before the redirect
+    # below, or the redirect failure masquerades as a syntax error.
+    mkdir -p "$CONFIG_DIR"
+
+    local example_config
+    example_config="${SCRIPT_DIR}/${SCRIPT_NAME}.cfg.example"
+
     if [[ ! -f "$CONFIG_FILE" ]]; then
         show_header
-        printf "\033[31m■ Configuration error\033[0m\n" >&2
-        printf "  Missing configuration file: %s\n" "$CONFIG_FILE" >&2
-        printf "  Copy the shipped example and adjust it to your system's needs:\n" >&2
-        printf "  cp %s/%s.cfg.example %s\n" "$SCRIPT_DIR" "$SCRIPT_NAME" "$CONFIG_FILE" >&2
+        # shellcheck disable=SC2059
+        fail "$(printf "%s\n         %s" "${MSG[fail_config_missing]}" "$CONFIG_FILE")"
+        # shellcheck disable=SC2059
+        echo "  $(printf "${MSG[fail_config_hint]}" "$example_config")"
+        exit 1
+    fi
+
+    if ! bash -n "$CONFIG_FILE" 2> "$TMP_ERR_FILE"; then
+        show_header
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[fail_config_syntax]}" "$CONFIG_FILE")"
+        sed "s|^$CONFIG_FILE: ||" "$TMP_ERR_FILE" | sed 's/^/  /' >&2
         exit 1
     fi
 
@@ -296,27 +340,27 @@ show_menu() {
 
     # shellcheck disable=SC2059
     printf "${MSG[menu_status]}\n"
-    printf "├ %-*s %b\n" "$PAD_MENU_WIDTH" "${MSG[menu_cron_label]}" "$cron_status"
-    printf "├ %-*s %s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_db_label]}" "$db_files" "${MSG[menu_files_tracked]}"
-    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "${MSG[menu_logsize_label]}" "$log_size"
+    printf "├ %s %b\n" "$(pad_to "${MSG[menu_cron_label]}" "$PAD_STATUS_WIDTH")" "$cron_status"
+    printf "├ %s %s %s\n" "$(pad_to "${MSG[menu_db_label]}" "$PAD_STATUS_WIDTH")" "$db_files" "${MSG[menu_files_tracked]}"
+    printf "╰ %s %s\n\n" "$(pad_to "${MSG[menu_logsize_label]}" "$PAD_STATUS_WIDTH")" "$log_size"
 
     # shellcheck disable=SC2059
     printf "${MSG[tmpl_menu_invoke]}\n" "$SCRIPT_NAME"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--dry-run" "${MSG[opt_dry_run]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--help" "${MSG[opt_help]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--log" "${MSG[opt_log]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--quiet" "${MSG[opt_quiet]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--reset-db" "${MSG[opt_reset_db]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--schedule" "${MSG[opt_schedule]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--unschedule" "${MSG[opt_unschedule]}"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "--verbose" "${MSG[opt_verbose]}"
-    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "--version" "${MSG[opt_version]}"
+    printf "├ %s %s\n" "$(pad_to "--dry-run" "$PAD_OPTION_WIDTH")" "${MSG[opt_dry_run]}"
+    printf "├ %s %s\n" "$(pad_to "--help" "$PAD_OPTION_WIDTH")" "${MSG[opt_help]}"
+    printf "├ %s %s\n" "$(pad_to "--log" "$PAD_OPTION_WIDTH")" "${MSG[opt_log]}"
+    printf "├ %s %s\n" "$(pad_to "--quiet" "$PAD_OPTION_WIDTH")" "${MSG[opt_quiet]}"
+    printf "├ %s %s\n" "$(pad_to "--reset-db" "$PAD_OPTION_WIDTH")" "${MSG[opt_reset_db]}"
+    printf "├ %s %s\n" "$(pad_to "--schedule" "$PAD_OPTION_WIDTH")" "${MSG[opt_schedule]}"
+    printf "├ %s %s\n" "$(pad_to "--unschedule" "$PAD_OPTION_WIDTH")" "${MSG[opt_unschedule]}"
+    printf "├ %s %s\n" "$(pad_to "--verbose" "$PAD_OPTION_WIDTH")" "${MSG[opt_verbose]}"
+    printf "╰ %s %s\n\n" "$(pad_to "--version" "$PAD_OPTION_WIDTH")" "${MSG[opt_version]}"
 
     # shellcheck disable=SC2059
     printf "${MSG[menu_paths]}\n"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_script]}" "$SCRIPT_PATH"
-    printf "├ %-*s %s\n" "$PAD_MENU_WIDTH" "${MSG[menu_database]}" "$CHECKSUM_DB"
-    printf "╰ %-*s %s\n\n" "$PAD_MENU_WIDTH" "${MSG[menu_logdir]}" "$RUNTIME_LOG"
+    printf "├ %s %s\n" "$(pad_to "${MSG[menu_script]}" "$PAD_MENU_WIDTH")" "$SCRIPT_PATH"
+    printf "├ %s %s\n" "$(pad_to "${MSG[menu_database]}" "$PAD_MENU_WIDTH")" "$CHECKSUM_DB"
+    printf "╰ %s %s\n\n" "$(pad_to "${MSG[menu_logdir]}" "$PAD_MENU_WIDTH")" "$LOG_DIR"
 }
 
 
@@ -324,15 +368,15 @@ show_menu() {
 # ───── Man Page Style Help Viewer ─────────────────────────────────────
 
 show_help() {
-   show_header
-   echo "${MSG[help_open]}" 
-    log "● Opening help..."
+    show_header
+    echo "${MSG[help_open]}" 
+    log "Opening help..."
     # shellcheck disable=SC2059
     # tmpl-style key: help body is a locale template by design (MESSAGES.md)
     printf "${MSG[help_text]}" "$SCRIPT_NAME" "$CRON_INTERVAL_MINUTES" \
         "$RUNTIME_LOG" "$KEEP_LOG_RUNS" "$DELETE_MODE" | less
     echo "${MSG[help_close]}"
-    log "● Help closed."
+    log "Help closed."
     exit 0
 }
 
@@ -342,17 +386,18 @@ show_help() {
 
 show_version() {
     show_header
-    printf "  %-*s %s\n" "$PAD_VERSION_WIDTH" "${MSG[info_version]}" "$VERSION"
-    printf "  %-*s %s\n" "$PAD_VERSION_WIDTH" "${MSG[info_build_date]}" "$BUILD_DATE"
-    printf "  %-*s %s\n\n" "$PAD_VERSION_WIDTH" "${MSG[info_path]}" "$SCRIPT_PATH"
-    printf "  %-*s \n" "$PAD_VERSION_WIDTH" "${MSG[info_cli_version]}"
+    printf "  %s %s\n" "$(pad_to "${MSG[info_version]}" "$PAD_VERSION_WIDTH")" "$VERSION"
+    printf "  %s %s\n" "$(pad_to "${MSG[info_build_date]}" "$PAD_VERSION_WIDTH")" "$BUILD_DATE"
+    printf "  %s %s\n\n" "$(pad_to "${MSG[info_path]}" "$PAD_VERSION_WIDTH")" "$SCRIPT_PATH"
+    printf "  %s\n" "${MSG[info_cli_version]}"
 
     if command -v proton-drive &>/dev/null; then
         while IFS= read -r line; do
-            printf "  %s\n" "$line"
+            printf "    %s\n" "$line"
         done < <(proton-drive version 2>&1)
     else
-        printf "  %s\n" "${MSG[info_cli_not_installed]}"
+        fail "${MSG[info_cli_not_installed]}"
+        log "Proton Drive CLI not installed."
     fi
 
     log "Version information displayed."
@@ -452,7 +497,8 @@ unschedule_cron() {
 archive_completed_runs() {
     [[ -e "$RUNTIME_LOG" ]] || return 0
 
-    local -a stamp members archive
+    local stamp
+    local -a members archive
     
     stamp="$(date -u '+%Y%m%dT%H%M%SZ')"
 
@@ -577,7 +623,7 @@ parse_args() {
                 warn "${MSG[warn_unknown_option]} $1"
 
                 # shellcheck disable=SC2059
-                printf "${MSG[tmpl_usage_hint]}\n" "$SCRIPT_NAME"
+                printf "          ${MSG[tmpl_usage_hint]}\n" "$SCRIPT_NAME"
                 exit 1
                 ;;
         esac
@@ -985,7 +1031,7 @@ compare_and_upload() {
     info "${MSG[info_compare_upload]}"
     log "[INFO] Upload comparison phase started."
 
-    local local_entries
+    local local_entries err_msg
     
     local_entries=$(jq -c '.entries[]' "$CHECKSUM_DB" 2>/dev/null) || true
 
@@ -1084,8 +1130,6 @@ compare_and_upload() {
 
                         set +f
 
-                        local err_msg
-
                         err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ' || echo "unknown error")
                         detail_fail "  Upload failed: $rel_path ($err_msg)"
                         log "[ERROR] Upload failed for: $local_path — $err_msg"
@@ -1159,7 +1203,7 @@ compare_and_delete() {
 
         processed=$((processed + 1))
 
-        local remote_path
+        local remote_path err_msg
 
         remote_path="${REMOTE_BASE_PATH}/${prev_rel}"
 
@@ -1171,7 +1215,6 @@ compare_and_delete() {
                 # trash first, then delete by its trash path.
                 if ! proton-drive filesystem trash "$remote_path" \
                     >/dev/null 2>"$TMP_ERR_FILE"; then
-                    local err_msg
                     err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
                     err_msg="${err_msg:-unknown error}"
                     detail_fail "  trash failed: $remote_path"
@@ -1190,7 +1233,6 @@ compare_and_delete() {
                     detail_success "  Permanently deleted (after trash): $remote_path"
                     log "[INFO] Permanently deleted: $remote_path"
                 else
-                    local err_msg
                     err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
                     err_msg="${err_msg:-unknown error}"
                     detail_fail "  delete failed: $trash_target (origin: $remote_path)"
@@ -1209,7 +1251,6 @@ compare_and_delete() {
                     detail_info "  Already absent on remote (skipping): $remote_path"
                     log "[INFO] Orphan not present on remote: $remote_path"
                 else
-                    local err_msg
                     err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
                     err_msg="${err_msg:-unknown error}"
                     detail_fail "- trash failed: $remote_path"
@@ -1347,11 +1388,11 @@ print_summary() {
     else
         echo -e "${INDICATOR_PASS}${MSG[sum_completed_ok]}${FORMATTING_RESET}"
     fi
-    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_uploaded]}" "$UPLOAD_COUNT"
-    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_skipped]}" "$SKIP_COUNT"
-    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[mode_verb_${DELETE_MODE}]}" "$DELETE_COUNT"
-    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_errors]}" "$ERROR_COUNT"
-    printf "  %-*s %s\n" "$PAD_SUMMARY_WIDTH" "${MSG[sum_warnings]}" "$WARNING_COUNT"
+    printf "  %s %s\n" "$(pad_to "${MSG[sum_uploaded]}" "$PAD_SUMMARY_WIDTH")" "$UPLOAD_COUNT"
+    printf "  %s %s\n" "$(pad_to "${MSG[sum_skipped]}" "$PAD_SUMMARY_WIDTH")" "$SKIP_COUNT"
+    printf "  %s %s\n" "$(pad_to "${MSG[mode_verb_${DELETE_MODE}]}" "$PAD_SUMMARY_WIDTH")" "$DELETE_COUNT"
+    printf "  %s %s\n" "$(pad_to "${MSG[sum_errors]}" "$PAD_SUMMARY_WIDTH")" "$ERROR_COUNT"
+    printf "  %s %s\n" "$(pad_to "${MSG[sum_warnings]}" "$PAD_SUMMARY_WIDTH")" "$WARNING_COUNT"
     log "[SUMMARY] Uploaded: $UPLOAD_COUNT, Skipped: $SKIP_COUNT, ${DELETE_MODE^}d: $DELETE_COUNT, Errors: $ERROR_COUNT, Warnings: $WARNING_COUNT"
 }
 
@@ -1391,6 +1432,7 @@ cleanup() {
 # ───── Main Execution ─────────────────────────────────
 
 main() {
+
     # Locale first (localized errors for unknown options), then args,
     # then config (values are only needed AFTER parse_args succeeded).
     if [[ -f "$LOCALE_FILE" && "$SYSTEM_LANG" != "en" ]]; then
@@ -1402,13 +1444,53 @@ main() {
     parse_args "$@"
     load_config
 
-    # Config is user input — validate contracts before trusting them
-    case "$DELETE_MODE" in trash|delete) ;; *)
-        fail "Invalid DELETE_MODE: '$DELETE_MODE' (must be trash or delete)."; exit 1 ;; esac
-    case "$UPLOAD_CONFLICT_STRATEGY" in replace|skip) ;; *)
-        fail "Invalid UPLOAD_CONFLICT_STRATEGY: '$UPLOAD_CONFLICT_STRATEGY' (must be replace or skip)."; exit 1 ;; esac
-    [[ "$CRON_INTERVAL_MINUTES" =~ ^[1-9][0-9]*$ ]] || {
-        fail "Invalid CRON_INTERVAL_MINUTES: '$CRON_INTERVAL_MINUTES'."; exit 1; }
+    # Config is user input — validate contracts before trusting them.
+    # ${VAR:-} everywhere: with set -u, direct references to unset
+    # variables abort the script BEFORE a localized message can fire.
+    # The guards must be the ones reporting, not the shell.
+
+    case "${DELETE_MODE:-}" in trash|delete) ;; *)
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "DELETE_MODE" "${DELETE_MODE:-}" "${MSG[fail_val_delete]}")"
+        exit 1 ;; esac
+
+    case "${UPLOAD_CONFLICT_STRATEGY:-}" in replace|skip) ;; *)
+    # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "UPLOAD_CONFLICT_STRATEGY" "${UPLOAD_CONFLICT_STRATEGY:-}" "${MSG[fail_val_conflict]}")"
+        exit 1 ;; esac
+
+    if [[ ! "${CRON_INTERVAL_MINUTES:-}" =~ ^[1-9][0-9]*$ ]]; then
+    # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CRON_INTERVAL_MINUTES" "${CRON_INTERVAL_MINUTES:-}" "${MSG[fail_val_cron_positive]}")"
+        exit 1
+    elif (( CRON_INTERVAL_MINUTES > 60 && CRON_INTERVAL_MINUTES % 60 != 0 )); then
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CRON_INTERVAL_MINUTES" "$CRON_INTERVAL_MINUTES" "${MSG[fail_val_cron_divisible]}")"
+        exit 1
+    fi
+
+    # Retention bound: prune_old_runs feeds KEEP_LOG_RUNS directly
+    # into tail -n +N arithmetic — a non-positive value prunes all
+    # archives (data loss) or keeps them all silently.
+    if [[ ! "${KEEP_LOG_RUNS:-}" =~ ^[1-9][0-9]*$ ]]; then
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "KEEP_LOG_RUNS" "${KEEP_LOG_RUNS:-}" "${MSG[fail_val_keep_log_runs]}")"
+        exit 1
+    fi
+
+    # SOURCE_BASE anchors relative SOURCE_DIRS entries; an empty or
+    # relative value would expand backups into unintended locations.
+    if [[ -z "${SOURCE_BASE:-}" || "${SOURCE_BASE:-}" != /* ]]; then
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "SOURCE_BASE" "${SOURCE_BASE:-}" "${MSG[fail_val_source_base]}")"
+        exit 1
+    fi
+
+    if [[ -z "${SOURCE_DIRS+x}" || ${#SOURCE_DIRS[@]} -eq 0 ]]; then
+        # shellcheck disable=SC2059
+        fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "SOURCE_DIRS" "" "${MSG[fail_val_source_dirs]}")"
+        exit 1
+    fi
 
     # Expand relative SOURCE_DIRS entries against SOURCE_BASE;
     # absolute paths (leading /) pass through unchanged.
@@ -1462,22 +1544,15 @@ main() {
     check_dependencies      # fail fast, localized
     archive_completed_runs  # bundle previous runs (pre-next-run)
     prune_old_runs          # enforce retention
-
-    ensure_remote_dir "$REMOTE_BASE_PATH"
     ensure_session || exit 1
+    ensure_remote_dir "$REMOTE_BASE_PATH"
 
-    if [[ ${#SOURCE_DIRS[@]} -eq 0 ]]; then
-        fail "${MSG[fail_no_source_dirs]}"
-        exit 1
-    fi
-
-    info "${MSG[info_initialized]}"
     info "${MSG[info_config_header]}"
     printf "       %s %s\n" "$(pad_to "${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
     printf "       %s %s\n" "$(pad_to "${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
     printf "       %s %s\n" "$(pad_to "${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
     printf "       %s %s\n" "$(pad_to "${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
-
+    
     load_local_db
     compare_and_upload
     compare_and_delete

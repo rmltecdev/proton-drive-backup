@@ -1,0 +1,215 @@
+# ───────────────────────────────────────────────────────
+# proton-drive-backup — Thai localization
+#
+# Place in same directory as the proton-drive-backup script.
+#
+# NOTE: This file is sourced as Bash. Review files obtained
+#       from third parties before using them.
+#
+# Copyright (c) 2026 RML Tec Dev
+# (not affiliated with Proton AG)
+# ───────────────────────────────────────────────────────
+
+# ───── Status labels (indicator words) ─────────────────
+MSG[status_preparing]="กำลังเตรียมข้อมูล..."
+
+# ───── Initialization and configuration ────────────────
+PAD_CONFIG_WIDTH="18"
+MSG[info_config_header]="การตั้งค่าการสำรองข้อมูล"
+MSG[info_conflict_strategy]="กลยุทธ์ความขัดแย้งy "
+MSG[info_delete_mode]="ลบโหมด"
+MSG[info_dry_run]="การดำเนินงานทดสอบ"
+MSG[info_reset_db]="รีเซ็ตฐานข้อมูลเช็คซัม"
+MSG[quiet_notice]="การสำรองข้อมูลทำงานในพื้นหลัง ติดตามความคืบหน้ากับ"
+MSG[fail_no_source_dirs]="ไม่มีการกำหนดค่าไดเร็กทอรีแหล่งที่มา"
+
+# ───── Dependencies and session ────────────────────────
+MSG[fail_dep_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
+MSG[info_deps_ok]="พอใจการพึ่งพาทั้งหมด"
+MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์..."
+MSG[info_session_valid]="เซสชั่นถูกต้อง"
+MSG[info_auth_required]="จำเป็นต้องมีการตรวจสอบสิทธิ์"
+MSG[warn_dry_run_auth]="ไม่สามารถตรวจสอบสิทธิ์ในโหมดทดลองรันได้ กำลังข้ามการสำรองข้อมูล"
+MSG[info_login_instruction]="กรุณาเรียกใช้"
+MSG[info_login_success]="เข้าสู่ระบบสำเร็จ"
+MSG[fail_login_failed]="การตรวจสอบสิทธิ์ล้มเหลว"
+
+# ───── Remote directory handling ───────────────────────
+MSG[info_dry_create_folder]="จะสร้างโฟลเดอร์"
+MSG[fail_remote_create]="ไม่สามารถสร้างโฟลเดอร์ระยะไกลได้"
+
+# ───── Database build and load ─────────────────────────
+MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง..."
+MSG[warn_skip_missing_dir]="ข้ามไดเรกทอรีที่หายไป"
+MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
+MSG[warn_db_empty]="ไม่พบไฟล์ในไดเรกทอรีต้นทาง ตรวจสอบการกำหนดค่าใน"
+MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่..."
+MSG[info_lookup_build]="กำลังสร้างตารางการค้นหาการตรวจจับการเปลี่ยนแปลง..."
+MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่...."
+MSG[label_scan]="สแกน"
+MSG[label_load]="โหลด"
+MSG[label_process]="กระบวนการ"
+MSG[label_delete]="ลบ"
+
+# ───── Upload phase ────────────────────────────────────
+MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า..."
+MSG[info_no_local_files]="ไม่มีไฟล์ในเครื่องที่จะประมวลผล"
+MSG[info_uploaded]="ประมวลผลแล้ว"
+
+# ───── Delete phase ────────────────────────────────────
+MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง..."
+MSG[info_no_orphans]="ไม่มีไฟล์ที่ถูกละเลยที่จะลบ"
+MSG[mode_verb_trash]="ทิ้งขยะอย่างกู้คืนได้"
+MSG[mode_verb_delete]="ลบอย่างถาวร"
+
+# ───── Lock file management ────────────────────────────
+MSG[warn_lock_stale]="กำลังนำไฟล์ล็อคเก่าออก..."
+
+# ───── Terminal resize (graceful degradation) ──────────
+MSG[warn_resize_disabled]="เทอร์มินัลปรับขนาด — ปิดใช้งานการแสดงความคืบหน้า"
+MSG[warn_resize_continuing]="การสำรองข้อมูลดำเนินต่อไปในโหมดเงียบ ติดตามความคืบหน้าด้วย"
+
+# ───── Logging ─────────────────────────────────────────
+MSG[info_no_log_found]="ไม่พบบันทึกใน"
+MSG[info_log_first_run]="ไฟล์บันทึกจะถูกสร้างขึ้นในการรันการสำรองข้อมูลครั้งแรก"
+MSG[info_log_opening]="บันทึกการเปิด"
+MSG[info_log_archive_opening]="กำลังเปิดบันทึกที่เก็บถาวรจาก"
+MSG[info_log_follow_hint]="กด Ctrl+C เพื่อขัดจังหวะการติดตาม กด Q เพื่อออก"
+MSG[warn_archive_failed]="ไม่สามารถเก็บถาวรบันทึกการรันได้ ปล่อยให้ไฟล์ธรรมดาอยู่กับที่"
+
+# ───── Cron management ─────────────────────────────────
+MSG[cron_manager]="ผู้จัดการครอนจ็อบ"
+MSG[cron_scheduled]="กำหนดเวลาครอนจ๊อบสำเร็จแล้ว"
+MSG[cron_already]="ครอนจ๊อบกำหนดไว้แล้วสำหรับ"
+MSG[cron_removed]="ลบครอนจ๊อบแล้ว"
+MSG[cron_none_found]="ไม่พบครอนจ๊อบสำหรับ"
+MSG[cron_existing]="รายการที่มีอยู่"
+MSG[cron_logs_written]="บันทึกถูกเขียนไปที่"
+
+# ───── Unknown options ─────────────────────────────────
+MSG[warn_unknown_option]="ตัวเลือกที่ไม่รู้จัก"
+
+# ───── Version display (also used by show_version) ─────
+PAD_VERSION_WIDTH="14"  # Inflate padding to align with longest string
+MSG[info_version]="เวอร์ชันสคริปต์"
+MSG[info_build_date]="วันที่สร้างสคริปต์"
+MSG[info_path]="เส้นทางสคริปต์"
+MSG[info_cli_version]="กำลังโหลดข้อมูล Proton Drive CLI..."
+MSG[info_cli_not_installed]="ไม่ได้ติดตั้ง Proton Drive CLI"
+
+# ───── Print Summary ───────────────────────────────────
+PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string
+MSG[sum_uploaded]="อัปโหลดแล้ว (ใหม่หรือมีการเปลี่ยนแปลง)"
+MSG[sum_skipped]="ข้ามไป (ไม่เปลี่ยนแปลง)"
+MSG[sum_errors]="พบข้อผิดพลาด"
+MSG[sum_warnings]="ออกคำเตือนแล้ว"
+MSG[sum_completed_ok]="การสำรองข้อมูลเสร็จสมบูรณ์"
+MSG[sum_completed_errors]="การสำรองข้อมูลเสร็จสมบูรณ์โดยมีข้อผิดพลาด"
+
+# ───── Man-page Style Help ─────────────────────────────
+read -r -d '' 'MSG[help_text]' <<'EOF'
+ชื่อ
+    Proton Drive Backup
+
+คำอธิบาย
+    เครื่องมือสำรองข้อมูลทางเดียวสำหรับไดเร็กทอรีและไฟล์ในเครื่องด้วยรีโมท พื้นที่เก็บข้อมูล Proton Drive
+    รวมถึงการอัปโหลดไฟล์ใหม่/ไฟล์ที่เปลี่ยนแปลง และ การลบไฟล์ระยะไกลที่ถูกละเลย ระบบท้องถิ่นเป็นระบบเดียว
+    แหล่งที่มาของความจริง ไม่มีการดำเนินการลบในเครื่อง การตรวจหาการเปลี่ยนแปลงจะขึ้นอยู่กับ
+    การเปรียบเทียบการตรวจสอบผลรวม MD5 ในเครื่อง ฐานข้อมูลถาวร ไม่จำเป็นต้องมีข้อมูลแฮชระยะไกล 
+    นี่เป็นเครื่องมือชุมชนที่ไม่เป็นทางการ โปรตอน เอจี จะไม่รับผิดชอบ สำหรับการทำงานหรือการบำรุงรักษา 
+    โปรตอน ไดรฟ์ เป็นเครื่องหมายการค้า ของบริษัทโปรตอน เอจี
+
+ความต้องการ
+    - proton-drive CLI v0.4.6 or higher
+    - jq (JSON processor)
+    - md5sum (checksum utility)
+    - bash version 4.2 หรือสูงกว่า
+    - tar
+
+การใช้งาน
+    %s [ตัวเลือก]
+
+    ตัวเลือก
+        --dry-run     แสดงการเปลี่ยนแปลง ไม่มีการดำเนินการใดๆ
+        --help        แสดงความช่วยเหลือนี้และออก
+        --log         เปิดและติดตามบันทึกรันไทม์ ออกด้วย Ctrl+C + Q
+        --quiet       เรียกใช้การสำรองข้อมูลแบบเงียบ ๆ (สำหรับงานครอนจ๊อบ)
+                      เอาต์พุตคอนโซล   ข้อผิดพลาดและสรุปเท่านั้น
+        --reset-db    รีเซ็ตฐานข้อมูลเช็คซัมและสร้างใหม่
+        --schedule    ตั้งเวลา cronjob อัตโนมัติ (ทุก %s นาที)
+        --unschedule  ลบ cronjob ออก
+        --verbose     เรียกใช้การสำรองข้อมูลพร้อมตัวบ่งชี้ความคืบหน้า
+        --version     แสดงข้อมูลเวอร์ชัน
+
+การบันทึก
+    ไฟล์บันทึก  %s
+    การหมุน   บันทึกภายในแบบรันตามการเก็บถาวรพร้อมกับการรันครั้งถัดไป
+             บันทึกที่หมุนเวียน %s เก็บไว้ เก่าที่สุดถูกลบ
+
+ลบกลยุทธ์
+    โหมดปัจจุบัน  %s
+    ตัวเลือก    "trash" (สามารถกู้คืนได้) หรือ
+              "delete" (ถาวร)
+    กำหนดค่าผ่านตัวแปร DELETE_MODE ในไฟล์กำหนดค่า
+
+ข้อจำกัดความรับผิดชอบ
+    สคริปต์นี้ให้บริการ "ตามสภาพ" ไม่มีการรับประกันใดๆ ทั้งสิ้น ข้อจำกัดความรับ 
+    ใช้งานด้วยความเสี่ยงของคุณเอง ทดสอบอย่างละเอียดถี่ถ้วน
+
+ผู้เขียน
+    ลิขสิทธิ์ (c) 2569 RML Tec Dev
+    ไม่มีส่วนเกี่ยวข้องกับ Proton AG
+    ยินดีรับข้อมูลและข้อเสนอแนะผ่านทาง rmltecdev@pm.me
+    
+ใบอนุญาต
+    ได้รับอนุญาตภายใต้สัญญาอนุญาต MIT
+EOF
+
+MSG[help_close]="ช่วยปิดครับ"
+MSG[help_open]="กำลังเปิดความช่วยเหลือ..."
+
+# ───── Interactive menu ────────────────────────────────
+PAD_STATUS_WIDTH="18"   # adjust to language
+PAD_OPTION_WIDTH="12"   # adjust to language
+PAD_MENU_WIDTH="14"     # adjust to language
+MSG[menu_status]="สถานะ"
+MSG[menu_cron_label]="กำหนดการครอนจ๊อบ"
+MSG[menu_db_label]="รายการฐานข้อมูล    "
+MSG[menu_files_tracked]="ติดตามไฟล์"
+MSG[menu_logsize_label]="ขนาดไฟล์บันทึก      "
+MSG[menu_paths]="เส้นทาง"
+MSG[menu_script]="สคริปต์"
+MSG[menu_database]="ฐานข้อมูล"
+MSG[menu_logdir]="ไดเรกทอรีบันทึก"
+MSG[opt_dry_run]="แสดงการเปลี่ยนแปลง ไม่มีการดำเนินการใดๆ"
+MSG[opt_help]="แสดงคำอธิบาย การใช้งาน และใบอนุญาต"
+MSG[opt_log]="เปิดและติดตามบันทึกรันไทม์ ออกด้วย Ctrl+C + Q"
+MSG[opt_quiet]="เรียกใช้การสำรองข้อมูลแบบเงียบ ๆ (ครอนจ๊อบ)"
+MSG[opt_reset_db]="รีเซ็ตฐานข้อมูลเช็คซัม MD5 และสร้างใหม่"
+MSG[opt_schedule]="ตั้งเวลาครอนจ๊อบอัตโนมัติ"
+MSG[opt_unschedule]="ลบครอนจ๊อบออก"
+MSG[opt_verbose]="เรียกใช้การสำรองข้อมูลพร้อมตัวบ่งชี้ความคืบหน้า"
+MSG[opt_version]="แสดงข้อมูลเวอร์ชัน"
+
+# ───── Config validation constants ─────────────────────
+MSG[fail_val_delete]="trash หรือ delete"
+MSG[fail_val_conflict]="replace หรือ skip"
+MSG[fail_val_cron_positive]="จำนวนเต็มบวก"
+MSG[fail_val_cron_divisible]="1-60 หรือหารด้วย 60 ลงตัว"
+MSG[fail_val_source_dirs]="ต้องระบุไดเรกทอรีต้นทางอย่างน้อยหนึ่งรายการ"
+MSG[fail_val_keep_log_runs]="ต้องเป็นจำนวนเต็มตั้งแต่ 1 ขึ้นไป"
+MSG[fail_val_source_base]="ต้องเป็นพาธแบบสัมบูรณ์ที่ขึ้นต้นด้วย /"
+MSG[fail_config_missing]="ไม่พบไฟล์การตั้งค่า:"
+MSG[fail_config_hint]="คัดลอกไฟล์ตั้งค่าตัวอย่างที่ %s แล้วปรับแก้ให้เหมาะสม"
+MSG[fail_config_syntax]="พบข้อผิดพลาดไวยากรณ์ในไฟล์กำหนดค่า: %s"
+
+# ───── Composite templates (printf, %s placeholders) ───
+MSG[tmpl_db_built]="ฐานข้อมูลที่สร้าง: %s ไฟล์ รวม %s"
+MSG[tmpl_prev_db_loaded]="โหลดฐานข้อมูลก่อนหน้า (%s รายการ) เพื่อการตรวจจับการเปลี่ยนแปลง"
+MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไป"
+MSG[tmpl_delete_phase]="ลบเฟส %s %s"
+MSG[tmpl_lock_running]="อินสแตนซ์อื่นกำลังทำงานอยู่ (PID: %s)"
+MSG[tmpl_cron_interval]="การสำรองข้อมูลจะทำงานทุกๆ %s นาทีในโหมดเงียบ"
+MSG[tmpl_usage_hint]="เรียกใช้ '%s --help' เพื่อดูตัวเลือกที่มี"
+MSG[tmpl_menu_invoke]="เรียกใช้ %s ด้วยหนึ่งในตัวเลือกเหล่านี้"
+MSG[tmpl_fail_invalid_value]="ค่าไม่ถูกต้องสำหรับ %s: '%s' (ค่าที่อนุญาต: %s)"

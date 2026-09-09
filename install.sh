@@ -19,10 +19,15 @@
 set -euo pipefail
 
 readonly PROGNAME="proton-drive-backup"
-readonly VERSION="1.0.0"  # Installer version (independent of script version)
+readonly VERSION="1.0.0"  # keep in sync with main script (smoke test)
 
 # Determine script source directory (repo root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Configuration follows the XDG contract of the main script:
+# the installer pre-seeds the same path the script aborts on if missing.
+CONFIG_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/${PROGNAME}"
+CONFIG_FILE="${CONFIG_DIR}/${PROGNAME}.cfg"
 
 
 
@@ -44,22 +49,12 @@ check_command() {
     command -v "$1" &>/dev/null
 }
 
-require_command() {
-    if ! check_command "$1"; then
-        log_error "Required command not found: $1"
-        exit 1
-    fi
-}
-
 
 
 # ───── Dependency Check ───────────────────────────────────────────────
 
-# Globals for end-of-script summary
-MISSING_AUDIO=false
-
 check_dependencies() {
-    local missing_required=()
+    local -a missing_required=()
 
     echo "Checking dependencies..."
 
@@ -76,7 +71,7 @@ check_dependencies() {
         log_error "Install missing packages and rerun the installer."
         exit 1
     fi
-        
+
     log_info "Core dependencies satisfied."
     echo ""
 }
@@ -94,8 +89,8 @@ detect_install_target() {
     # Check if ~/bin exists and is in PATH
     elif [[ -d "${HOME}/bin" ]] && echo "$PATH" | grep -q "${HOME}/bin"; then
         target="${HOME}/bin"
-    # Default to ~/.local/bin (will need PATH setup if not present)
     else
+        # Default to ~/.local/bin (will need PATH setup if not present)
         target="${HOME}/.local/bin"
     fi
 
@@ -138,10 +133,29 @@ EOF
 
 
 
+# ───── Privilege Handling ─────────────────────────────────────────────
+
+# Under sudo, HOME points to /root — resolve the invoking user's home
+# so the config is seeded where the actual user (and the script) finds it.
+resolve_user_home() {
+    local home_dir
+
+    if [[ -n "${SUDO_USER:-}" ]]; then
+        home_dir="$(getent passwd "${SUDO_USER}" | cut -d: -f6)"
+    else
+        home_dir="${HOME}"
+    fi
+
+    printf "%s" "${home_dir:-${HOME}}"
+}
+
+
+
 # ───── File Installation ──────────────────────────────────────────────
 
 install_files() {
     local target_dir="$1"
+    local config_dir="$2"
 
     echo "Installing files to ${target_dir}..."
 
@@ -152,18 +166,26 @@ install_files() {
     cp -f "${SCRIPT_DIR}/${PROGNAME}" "${target_dir}/${PROGNAME}"
     chmod +x "${target_dir}/${PROGNAME}"
 
-    # Copy localization files — glob OUTSIDE quotes so it expands
-    for locale_file in "${SCRIPT_DIR}/${PROGNAME}".*; do
+    # Copy localization files — two-letter language suffixes only
+    # (.en, .de, ...); excludes .cfg.example and repo metadata.
+    # Glob stays OUTSIDE quotes so it expands.
+    local locale_file
+
+    for locale_file in "${SCRIPT_DIR}/${PROGNAME}".[a-z][a-z]; do
         if [[ -f "${locale_file}" ]]; then
             cp -f "${locale_file}" "${target_dir}/"
         fi
     done
-    
-    # Copy config example only if no individual config exists yet
-    if [[ ! -f "$CONFIG_FILE" ]]; then
-        cp "$SCRIPT_DIR/${SCRIPT_NAME}.cfg.example" "$CONFIG_FILE"
-        echo "Created configuration file: $CONFIG_FILE"
-        echo "Adjust the values to your system before first run."
+
+    # Install config ONLY if absent — updates never overwrite user
+    # settings. Seeded into the same XDG path the main script reads.
+    if [[ ! -f "${config_dir}/${PROGNAME}.cfg" ]]; then
+        mkdir -p "${config_dir}"
+        cp "${SCRIPT_DIR}/${PROGNAME}.cfg.example" "${config_dir}/${PROGNAME}.cfg"
+        log_info "Configuration created: ${config_dir}/${PROGNAME}.cfg"
+        echo "  Adjust the values to your system before first run."
+    else
+        log_info "Existing configuration preserved: ${config_dir}/${PROGNAME}.cfg"
     fi
 
     log_info "Files installed successfully."
@@ -182,7 +204,6 @@ Install proton-drive-backup to your system.
 OPTIONS:
     -h, --help          Show this help message
     -t, --target DIR    Specify installation directory (default: auto-detect)
-    --skip-extension    Skip GNOME Shell extension installation
     --sysadmin          Install system-wide to /usr/local/bin (requires sudo)
 
 EXAMPLES:
@@ -203,8 +224,8 @@ EOF
 
 main() {
     local target_dir=""
-    local skip_extension=false
     local sysadmin_mode=false
+    local user_home
 
     # Parse arguments
     while [[ $# -gt 0 ]]; do
@@ -217,10 +238,6 @@ main() {
                 target_dir="$2"
                 shift 2
                 ;;
-            --skip-extension)
-                skip_extension=true
-                shift
-                ;;
             --sysadmin)
                 sysadmin_mode=true
                 shift
@@ -231,6 +248,10 @@ main() {
                 ;;
         esac
     done
+
+    # Resolve the home directory that owns the config: the invoking
+    # user under sudo, otherwise the current one.
+    user_home="$(resolve_user_home)"
 
     # Determine target directory
     if [[ -n "${target_dir:-}" ]]; then
@@ -254,8 +275,9 @@ main() {
     # Check dependencies
     check_dependencies
 
-    # Install files
-    install_files "${target_dir}"
+    # Install files (config always seeds the invoking user's XDG dir,
+    # never root's, even when run via sudo --sysadmin)
+    install_files "${target_dir}" "${user_home}/.config/${PROGNAME}"
 
     # Confirm installation
     echo ""
@@ -275,41 +297,17 @@ main() {
         fi
     fi
 
-    # ── Summary ───────────────────────────────────────────────────────
-    # Only show dependency warning if something is missing
-    if [[ "${MISSING_AUDIO}" == true ]]; then
-        echo ""
-        printf "  Dependency overview:\n"
-        printf "  \n"
-        printf "    Required:\n"
-        printf "    %b✓%b %s\n" "\033[32m" "\033[0m" "gsettings     (glib2)"
-        printf "    %b✓%b %s\n" "\033[32m" "\033[0m" "realpath      (coreutils)"
-        printf "    \n"
-        printf "    Audio player (at least one):\n"
-        printf "    %b✗%b %s\n" "\033[31m" "\033[0m" "pw-play / paplay / aplay"
-        printf "    \n"
-        printf "    Install one of:\n"
-        printf "      sudo apt install pipewire-audio\n"
-        printf "      sudo apt install pulseaudio-utils\n"
-        printf "      sudo apt install alsa-utils\n"
-        printf "    \n"
-        log_warn "Audio player missing — install one to enable sound feedback."
-    else
-        # All dependencies satisfied — clean summary
-        echo ""
-        log_info "All dependencies satisfied."
-        echo ""
-    fi
-
     # ── Next Steps ────────────────────────────────────────────────────
     echo ""
     echo "────────────────────────────────────────────────────────────"
-    echo "" "Next steps:"
-    printf "\n"
+    echo "  Next steps:"
+    echo ""
     printf "  1. Close this terminal and open a new one (if PATH was modified)\n"
-    printf "  2. Run: %s --help\n" "${PROGNAME}"
-    printf "  3. Run: %s --assign\n" "${PROGNAME}"  
-    printf "\n"
+    printf "  2. Adjust your configuration if needed:\n"
+    printf "     %s/.config/%s/%s.cfg\n" "${user_home}" "${PROGNAME}" "${PROGNAME}"
+    printf "  3. Preview your first run (nothing is executed): %s --dry-run\n" "${PROGNAME}"
+    printf "  4. Run for real: %s\n" "${PROGNAME}"
+    echo ""
 }
 
 main "$@"
