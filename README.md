@@ -193,4 +193,4 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 ### Version
 
 **Version:** v1.1.0
-Build Date:  2026-09-09
+Build Date:  2026-09-15
