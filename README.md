@@ -21,7 +21,7 @@
    ● Info Comparing local files against previous backup state...
  
  
-   ● Process ▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░ 1460/11764 (12%, 32GiB)
+   ● Processing ▓▓▓░░░░░░░░░░░░░░░░░░░░░ 1460/11764 (12%, 32GiB)
 ```
 
 #### Table of Contents
@@ -80,7 +80,7 @@ All user decisions live in the config file above.
 
 **Key variables**  
 
-| *Variable`                 | *Values*            | *Description*                       |
+| *Variable*                 | *Values*            | *Description*                       |
 |----------------------------|---------------------|-------------------------------------|
 | `SOURCE_BASE`              | path                | Base directory for relative entries |
 | `SOURCE_DIRS`              | list of paths       | Directories to back up              |
@@ -120,6 +120,7 @@ Invoked without options, the tool shows a status menu.
 
 | *Option*       | *Description*                                       |
 |----------------|-----------------------------------------------------|
+| `--checksum`   | Forces a full MD5 re-hash of all files, bypassing the `size`+`mtime` fast path. Use only when suspecting corruption or after manual DB edits. |
 | `--dry-run`    | Display pending changes; no action taken            |
 | `--help`       | Man-page style help; quits with Q                   |
 | `--log`        | Open and follow the runtime log                     |
@@ -191,5 +192,5 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
 ### Version
 
-**Version:** v1.0.0
+**Version:** v1.1.0
 Build Date:  2026-09-09

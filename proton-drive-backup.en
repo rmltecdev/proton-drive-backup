@@ -12,6 +12,15 @@
 
 # ───── Status labels (indicator words) ─────────────────
 MSG[status_preparing]="Preparing data..."
+MSG[label_scan]="Scanning"
+MSG[label_load]="Loading"
+MSG[label_process]="Processing"
+MSG[label_delete]="Deleting"
+MSG[label_load]="Loading"
+MSG[label_files]="files"
+MSG[info_eta_calculating_prefix]="ETA"
+MSG[info_eta_calculating]="calculating..."  # max. 20 fixed-width characters to avoid truncating value
+MSG[info_eta_completed]="...completed."     # max. 20 fixed-width characters to avoid truncating value
 
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="24"
@@ -45,10 +54,8 @@ MSG[warn_db_empty]="No files found in source directories; check configuration in
 MSG[info_no_db_found]="No checksum database found; building new one..."
 MSG[info_lookup_build]="Building change-detection lookup table..."
 MSG[warn_rebuild_db]="Rebuilding checksum database..."
-MSG[label_scan]="Scanning"
-MSG[label_load]="Loading"
-MSG[label_process]="Processing"
-MSG[label_delete]="Deleting"
+MSG[opt_checksum]="Force full checksum verification"
+MSG[info_lookup_build]="Building lookup table from previous database..."
 
 # ───── Upload phase ────────────────────────────────────
 MSG[info_compare_upload]="Comparing local files against previous backup state..."

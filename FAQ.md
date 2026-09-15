@@ -10,9 +10,14 @@
 [Logs](#logs)  
 [Progress Display](#progress-display)  
 [Should I use --verbose or --quiet?](#should-i-use)  
+[Headless Server Authentication](#headless-server-authentication)  
+[Using `--checksum` Flag](#using-checksum-flag)  
+[Understanding `--reset-db` Behavior](#understanding-reset-db-behavior)  
+[Dry-Run Mode Limitations](#dry-run-mode-limitations)  
+[Technical Decisions](#technical-decisions)
 [Who is liable for data loss?](#who-is-liable)  
 [Can I modify the script?](#an-I-modify-the-script)  
-[Legal and Modification](Legal and Modification)
+[Legal and Modification](#legal-and-modification)  
 
 ## General
 
@@ -38,9 +43,9 @@ Renaming is not atomic in the CLI world: it registers as delete plus upload. In 
 
 The official Proton Drive CLI does not offer recursive folder deletion of empty directories. This is a documented CLI limitation.  
 
-### Why does --help/--version fail with a configuration error?
+### Why does `--help` or `--version` fail with a configuration error?
 
-The script validates its entire configuration contract before any mode runs — a partially working script that fails mid-operation is worse than one that refuses to start. Fix the reported config value (see the example config), then all modes become available at once.
+The script validates its entire configuration contract before any mode runs — a partially working script that fails mid-operation is worse than one that refuses to start. Fix the reported config value (see the example config), then all modes become available at once.  
 
 ## Sizing and Fair Use
 
@@ -72,11 +77,11 @@ Any language whose text contains multibyte UTF-8 glyphs…
 
 If `de_DE.utf8` is missing, enable it in `/etc/locale.gen` (remove the `#` in front of `de_DE.UTF-8 UTF-8`) and run `sudo locale-gen`.  
 
-### I set LANG=de-DE.UTF-8 and nothing changed — why?
+### I set `LANG=de-DE.UTF-8` and nothing changed — why?
 
 Underscore, not hyphen: the locale name is `de_DE.UTF-8`. An invalid locale name fails silently — the script still runs, but character counting falls back to byte counting, which breaks column alignment. This failure mode produces no error message; that is shell behavior, not a bug in the script.  
 
-### Why do umlauts break printf alignment at all?
+### Why do umlauts break `printf` alignment at all?
 
 Because three different units are involved: `printf` measures BYTES in field widths, `${#var}` counts CHARACTERS, and the terminal renders COLUMNS. A single UTF-8 umlaut is 2 bytes, 1 character, 1 column. The tool therefore routes all alignment through its own `pad_to()` helper, which counts columns-aware. Third-party patches should do the same — see MESSAGES.md.  
 
@@ -84,7 +89,7 @@ Because three different units are involved: `printf` measures BYTES in field wid
 
 ### The cron job starts but fails with an authentication error
 
-Cron runs without your desktop session environment. The script already exports the D-Bus session address for credential access, but if you logged in per-user: verify the cron user matches the user who authenticated the Proton Drive CLI. Run the script once manually (no `--quiet`) to trigger interactive login.  
+Cron runs without your desktop session environment. The script already exports the D-Bus session address for credential access, but if you logged in per-user: verify the cron user matches the user who authenticated the Proton Drive CLI. Run the script once manually (no `--quiet`, use `--verbose` instead) to trigger interactive login.  
 
 ## Logs
 
@@ -103,18 +108,174 @@ Retention is controlled via `KEEP_LOG_RUNS` in the config file.
 Expected behavior by design. A resize invalidates the cached terminal geometry the progress bar depends on. Instead of guessing, the tool disables the display, prints a warning, and continues in quiet mode. Progress remains observable in the logs; follow them live with `proton-drive-backup --log` or `tail -f` on the transfer log.  
 
 
-## Should I use --verbose or --quiet?
+## Should I use `--verbose` or `--quiet`?
 
 - Use `--verbose` for **manual runs** — and visual progress feedback.  
 - Use `--quiet` for **cronjobs** — minimizes I/O and keeps logs clean.  
 
 For initial backups or after a `--reset-db`, always use `--verbose` to verify the upload is proceeding correctly.  
 
+## Headless Server Authentication
+
+### My `proton-drive auth login` fails with `ERR_SECRETS_PLATFORM_ERROR` or "locked collection"
+
+On systems without a graphical login session (headless servers), the GNOME Keyring/Secret Service may not be initialized. This is common on SSH-only environments.  
+
+#### Symptoms
+
+* `secret-tool store` fails with "Object does not exist" or "locked collection"  
+* `proton-drive auth login` fails with `ERR_SECRETS_PLATFORM_ERROR` (timeout) or "Cannot create an item in a locked collection"  
+
+#### Root Cause
+
+No active D-Bus user session and/or no initialized `login` keyring collection. Credentials are machine-local; login on one system does not propagate to others.  
+
+#### Solution
+
+1. Enable persistent user sessions (for cron compatibility):  
+
+```bash
+    sudo loginctl enable-linger <username>
+```
+
+2. Initialize the keyring with an empty passphrase (recommended for headless/CI):  
+
+   * Stop all existing daemon instances:  
+
+```bash
+    systemctl --user stop gnome-keyring-daemon.service
+    pkill -u <username> -f gnome-keyring-daemon
+```
+
+   * Create isolated session and initialize:  
+
+```bash
+   dbus-run-session -- bash -c '
+       echo -n "" | gnome-keyring-daemon --unlock --components=secrets
+       secret-tool store --label="test" test test
+       secret-tool lookup test test && echo VERIFIED
+   '
+```
+
+   The empty passphrase means the keyring unlocks automatically on every daemon restart — acceptable for LAN home servers, evaluate security trade-offs for exposed systems.  
+
+3. Start the daemon via systemd user service:  
+
+```bash
+   systemctl --user enable gnome-keyring-daemon.service
+   systemctl --user start gnome-keyring-daemon.service
+```
+
+4. Verify and login:  
+
+```bash
+   secret-tool lookup test test    # Should return "test"
+   proton-drive auth login    # Copy URL to a browser with JavaScript support
+   proton-drive filesystem list /my-files --json
+```
+
+**OAuth Browser Limitation**
+
+Proton Drive CLI may attempt to launch an incompatible text browser (e.g., Links) on headless systems. Copy the authorization URL and paste it into a modern browser (Firefox, Chrome, Chromium) on any device with JavaScript enabled. Completion registers the credential on the server automatically.  
+
+**Post-Reboot Behavior**
+
+With an empty-passphrase keyring, the `login` collection unlocks automatically on daemon restart. If `systemd --user` is configured correctly (`enable-linger`), cron jobs continue without manual intervention. Verify with:  
+
+   * Close all SSH sessions, reconnect, then immediately:  
+
+```bash
+   proton-drive filesystem list /my-files --json
+```
+
+## Using `--checksum` Flag
+
+### When should I use `--checksum`?
+
+Under normal operation, omit this flag. The `--checksum` option forces a full MD5 re-hash of all files, bypassing the `size`+`mtime` fast path.  
+
+#### Use cases
+
+* Suspected file corruption (fast path trusts unchanged metadata)  
+* Modified mtime without content change (restored from archive, rsync without preserve flags)  
+* Manual database edits requiring re-verification  
+* Performance benchmarking (comparing full hash vs. fast path)  
+
+#### Expected behavior
+
+Fast path reused stored MD5 for 0 of N files.  
+
+Even unchanged files will be hashed; upload phase skips duplicates via MD5 comparison.  
+
+
+## Understanding `--reset-db` Behavior
+
+### What happens with `--reset-db`?
+
+The `--reset-db` flag discards the local checksum database and rebuilds it from scratch. All files are re-hashed, and if remote state differs from the newly computed database, a full re-upload occurs.  
+
+**Warning**  
+On large datasets with slow connections, `--reset-db` may trigger extensive uploads of unchanged files if the remote backend still holds previous versions.
+
+**Recommended usage**  
+
+```bash
+   ./proton-drive-backup --reset-db --verbose
+```
+
+Combine with `--verbose` for progress display; without it, the run proceeds silently (errors logged, summary printed).  
+
+**Use cases**  
+
+* After manual database corruption  
+* Switching source directories  
+* Verifying integrity after suspected tampering  
+* Clean slate for migration/testing  
+
+## Dry-Run Mode Limitations
+
+### Does `--dry-run` require authentication?
+
+Yes. While `--dry-run` performs no network uploads, it still validates the Proton Drive session to ensure credentials exist for a potential production run.  
+
+**Common confusion**  
+Users expect dry-run to show a purely offline preview without login. This is by design — dry-run tests the complete workflow except for mutation, helping catch credential issues before real runs.  
+
+**Note**  
+Folder creation messages in dry-run are hypothetical (e.g., "[DRY-RUN] Would create folder"). Existence is not verified without network calls.  
+
+## Technical Decisions
+
+### Why `set -u` without `set -e`?
+
+The script uses `set -uo pipefail` (explicit `set -u`, omitted `-e`). This deviation from the common `set -euo pipefail` is deliberate:  
+
+* `-u`: catches undefined variable references — critical for config validation and safe defaults  
+
+* No `-e`: allows fine-grained error handling (per-file recovery, counters, graceful degradation)  
+
+Per project guidelines, an undocumented deviation is a defect, a documented one is a decision — this is the documented one.  
+
+### Why is config validation performed before mode dispatch?
+
+Configuration contract validation (checking `DELETE_MODE`, `UPLOAD_CONFLICT_STRATEGY`, `CRON_INTERVAL_MINUTES`, etc.) runs immediately after argument parsing, before any operational mode (backup, menu, help) executes.  
+
+**Rationale**
+
+* Invalid config aborts the entire program early with localized error messages  
+* Prevents partial execution (e.g., menu displayed, then crash on invalid state)  
+* Ensures deterministic failure for debugging  
+
+This ordering is explicit in the `main()` function structure.  
+
 ## Legal and Modification
 
 ### Who is liable for data loss?
 
-You are. This tool is provided "as is" under the MIT License, with NO WARRANTY of any kind — neither RML Tec Dev nor Proton AG is liable for lost data, lost profits, or any damages arising from the use of this software. That is the deal of free software: you gain full control, and with it full responsibility. Mitigate sensibly:  
+**You are.** This script is provided "as is" under the [MIT License](LICENSE) with **no warranty whatsoever**. As a user, you are solely responsible for your own data and, where applicable, for any customer or third-party data stored on the system this script manages.  
+Neither RML Tec Dev nor Proton AG is liable for lost data, lost profits, or any damages arising from the use of this software. That is the deal of free software: you gain full control, and with it full responsibility.
+If your system handles critical or regulated data, implement your own backup and redundancy strategy. See [LICENSE](LICENSE) and the `DISCLAIMER` section in [README.md](README.md) for the full legal text.  
+Mitigate sensibly:  
 Preview every change with `--dry-run`, keep `DELETE_MODE=trash` until you trust your setup, verify backups after the first runs, and clear the remote trash only after checking.  
 
 ### Can I modify the script?
@@ -127,6 +288,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-09-09*
+*Last updated: 2026-09-13*
 *Author: RML Tec Dev*
 

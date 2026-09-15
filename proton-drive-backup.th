@@ -1,4 +1,4 @@
-# ───────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 # proton-drive-backup — Thai localization
 #
 # Place in same directory as the proton-drive-backup script.
@@ -8,10 +8,19 @@
 #
 # Copyright (c) 2026 RML Tec Dev
 # (not affiliated with Proton AG)
-# ───────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 
-# ───── Status labels (indicator words) ─────────────────
-MSG[status_preparing]="กำลังเตรียมข้อมูล..."
+# ───── Status labels (progress indicator) ─────────────────
+MSG[status_preparing]="กำลังเตรียมข้อมูล…"
+MSG[label_scan]="กำลังสแกน"
+MSG[label_load]="กำลังโหลด"
+MSG[label_process]="กำลังประมวลผล"
+MSG[label_delete]="ลบอย่าง (ถาวร)"
+MSG[label_load]="กำลังโหลด"
+MSG[label_files]="ไฟล์"
+MSG[info_eta_calculating_prefix]="ETA"
+MSG[info_eta_calculating]="กำลังคำวนคานวณ"  # max. 20 fixed-width characters to avoid truncating value
+MSG[info_eta_completed]="…เสร็จสมบูรณ์"     # max. 20 fixed-width characters to avoid truncating value
 
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="18"
@@ -25,7 +34,7 @@ MSG[quiet_notice]="การสำรองข้อมูลทำงานใ�
 # ───── Dependencies and session ────────────────────────
 MSG[fail_dep_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
 MSG[info_deps_ok]="การพึ่งพาทั้งหมดครบถ้วน"
-MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์..."
+MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์…"
 MSG[info_session_valid]="เซสชั่นถูกต้อง"
 MSG[info_auth_required]="จำเป็นต้องมีการตรวจสอบสิทธิ์"
 MSG[warn_dry_run_auth]="ไม่สามารถตรวจสอบสิทธิ์ในโหมดทดลองรันได้ กำลังข้ามการสำรองข้อมูล"
@@ -38,31 +47,29 @@ MSG[info_dry_create_folder]="จะสร้างโฟลเดอร์"
 MSG[fail_remote_create]="ไม่สามารถสร้างโฟลเดอร์ระยะไกลได้"
 
 # ───── Database build and load ─────────────────────────
-MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง..."
+MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง…"
 MSG[warn_skip_missing_dir]="ข้ามไดเรกทอรีที่หายไป"
 MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
 MSG[warn_db_empty]="ไม่พบไฟล์ในไดเรกทอรีต้นทาง ตรวจสอบการกำหนดค่าใน"
-MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่..."
-MSG[info_lookup_build]="กำลังสร้างตารางการค้นหาการตรวจจับการเปลี่ยนแปลง..."
-MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่..."
-MSG[label_scan]="กำลังสแกน"
-MSG[label_load]="กำลังโหลด"
-MSG[label_process]="กำลังประมวลผล"
-MSG[label_delete]="ลบอย่าง (ถาวร)"
+MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่…"
+MSG[info_lookup_build]="กำลังสร้างตารางการค้นหาการตรวจจับการเปลี่ยนแปลง…"
+MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่…"
+MSG[opt_checksum]="บังคับตรวจสอบเช็คซัมแบบสมบูรณ์"
+MSG[info_lookup_build]="สร้างตารางค้นหาจากฐานข้อมูลก่อนหน้า…"
 
 # ───── Upload phase ────────────────────────────────────
-MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า..."
+MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า…"
 MSG[info_no_local_files]="ไม่มีไฟล์ในเครื่องที่จะประมวลผล"
 MSG[info_uploaded]="ประมวลผลแล้ว"
 
 # ───── Delete phase ────────────────────────────────────
-MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง..."
+MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง…"
 MSG[info_no_orphans]="ไม่มีไฟล์ที่ถูกละเลยที่จะลบ"
 MSG[mode_verb_trash]="ย้ายไปถังขยะ (กู้คืนได้)"
 MSG[mode_verb_delete]="ลบอย่างถาวร"
 
 # ───── Lock file management ────────────────────────────
-MSG[warn_lock_stale]="กำลังนำไฟล์ล็อคเก่าออก..."
+MSG[warn_lock_stale]="กำลังนำไฟล์ล็อคเก่าออก…"
 
 # ───── Terminal resize (graceful degradation) ──────────
 MSG[warn_resize_disabled]="เทอร์มินัลปรับขนาด — ปิดใช้งานการแสดงความคืบหน้า"
@@ -93,7 +100,7 @@ PAD_VERSION_WIDTH="14"  # Inflate padding to align with longest string
 MSG[info_version]="เวอร์ชันสคริปต์"
 MSG[info_build_date]="วันที่สร้างสคริปต์"
 MSG[info_path]="เส้นทางสคริปต์"
-MSG[info_cli_version]="กำลังโหลดข้อมูล Proton Drive CLI..."
+MSG[info_cli_version]="กำลังโหลดข้อมูล Proton Drive CLI…"
 MSG[info_cli_not_installed]="ไม่ได้ติดตั้ง Proton Drive CLI"
 
 # ───── Print Summary ───────────────────────────────────
@@ -165,7 +172,7 @@ read -r -d '' 'MSG[help_text]' <<'EOF'
 EOF
 
 MSG[help_close]="ปิดความช่วยเหลือแล้ว"
-MSG[help_open]="กำลังเปิดความช่วยเหลือ..."
+MSG[help_open]="กำลังเปิดความช่วยเหลือ…"
 
 # ───── Interactive menu ────────────────────────────────
 PAD_STATUS_WIDTH="18"   # adjust to language

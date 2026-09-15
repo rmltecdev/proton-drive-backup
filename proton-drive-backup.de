@@ -12,6 +12,15 @@
 
 # ───── Status labels (indicator words) ─────────────────
 MSG[status_preparing]="Daten werden vorbereitet..."
+MSG[label_scan]="Scanne"
+MSG[label_load]="Lade"
+MSG[label_process]="Verarbeite"
+MSG[label_delete]="Lösche"
+MSG[label_load]="Lade"
+MSG[label_files]="Dateien"
+MSG[info_eta_calculating_prefix]="ETA"
+MSG[info_eta_calculating]="berechne..."     # max. 20 fixed-width characters to avoid truncating value
+MSG[info_eta_completed]="...vollständig."   # max. 20 fixed-width characters to avoid truncating value
 
 # ───── Initialization and configuration ────────────────
 PAD_CONFIG_WIDTH="33"
@@ -45,10 +54,8 @@ MSG[warn_db_empty]="Keine Dateien in Quellverzeichnissen gefunden; prüfen Sie d
 MSG[info_no_db_found]="Keine Prüfsummendatenbank gefunden; erstelle neu..."
 MSG[info_lookup_build]="Erstelle Änderungstabelle..."
 MSG[warn_rebuild_db]="Erstelle Prüfsummendatenbank neu..."
-MSG[label_scan]="Scanne"
-MSG[label_load]="Lade"
-MSG[label_process]="Verarbeite"
-MSG[label_delete]="Lösche"
+MSG[info_lookup_build]="Erstelle Nachschlagetabelle aus vorheriger Datenbank..."
+MSG[opt_checksum]="Vollständige Prüfsummenprüfung erzwingen"
 
 # ───── Upload phase ────────────────────────────────────
 MSG[info_compare_upload]="Vergleich lokaler Dateien mit vorherigem Sicherungsstand..."

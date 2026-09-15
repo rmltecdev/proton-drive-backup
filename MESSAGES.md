@@ -17,15 +17,12 @@ by `test.sh` wherever technically checkable.
    lives in `PAD_<SECTION>_WIDTH`, never as trailing spaces or filler
    characters inside `MSG[...]` strings.
 3. **Alignment goes through `pad_to()` only.** Rationale:
-   `printf` counts BYTES in `%-*s` field widths, `${#var}` counts
-   CODEPOINTS, and the terminal displays COLUMNS. `pad_to()`
-   (backed by `display_width()`) is the only measurement compatible
-   with all three. Zero-width Thai combining marks (U+0E31,
-   U+0E34–U+0E3A, U+0E47–U+0E4E) count as width 0.
+   `printf` counts BYTES in `%-*s` field widths, `${#var}` counts CODEPOINTS, and the terminal displays COLUMNS. `pad_to()` (backed by `display_width()`) is the only measurement compatible with all three. Zero-width Thai combining marks (U+0E31, U+0E34–U+0E3A, U+0E47–U+0E4E) count as width 0.
 4. **`MSG[help_text]` is a quoted heredoc** (`<<'EOF'`). It is exempt
    from rule 3 — it contains no column-aligned tables.
 5. **A missing locale file aborts the run** (`load_locale` contract);
    a missing key aborts the smoketest (alignment check, bidirectional).
+6. **ETA values** longer than 20 columns are truncated by the progress bar normalizer; keep all ETA-related strings ≤ 20 columns.
 
 ## PAD Variables
 
@@ -62,8 +59,10 @@ by `test.sh` wherever technically checkable.
 
 ## Key Catalog
 
-### Status labels
+### Status and progress labels
 `status_preparing` — progress bar boot message
+`label_scan`, `label_load`, `label_process`, `label_delete`,
+`info_eta_calculating`
 
 ### Initialization and configuration
 `info_config_header`, `info_conflict_strategy`, `info_delete_mode`,
@@ -80,11 +79,9 @@ by `test.sh` wherever technically checkable.
 ### Database build and load
 `info_building_db`, `warn_skip_missing_dir`, `warn_file_unreadable`,
 `warn_db_empty`, `info_no_db_found`, `info_lookup_build`,
-`warn_rebuild_db`, `label_scan`, `label_load`, `label_process`,
+`warn_rebuild_db`, `label_scan`,
+`label_load`, `label_process`,
 `label_delete`
-   Progress-bar verbs, translated in progressive form
-   (en: -ing, de: unflected verb, th: กำลัง-construction). A new
-   phase REQUIRES a new `label_*` member in every locale file.
 
 ### Upload phase
 `info_compare_upload`, `info_no_local_files`, `info_uploaded`
@@ -113,9 +110,11 @@ by `test.sh` wherever technically checkable.
 ### Unknown options
 `warn_unknown_option`
 
-### Version display
+### Version display and update check
 `info_version`, `info_build_date`, `info_path`, `info_cli_version`,
-`info_cli_not_installed`
+`info_cli_not_installed`, `info_update_uptodate`  
+   Update-check messages are opt-in (CHECK_UPDATES, default false):
+   no network activity in --version mode unless enabled.
 
 ### Print summary
 `sum_uploaded`, `sum_skipped`, `sum_errors`, `sum_warnings`,
@@ -131,17 +130,25 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 `tmpl_upload_phase` (2), `tmpl_delete_phase` (2),
 `tmpl_lock_running` (1), `tmpl_cron_interval` (1),
 `tmpl_usage_hint` (1), `tmpl_menu_invoke` (1),
-`tmpl_fail_invalid_value` (3)
+`tmpl_fail_invalid_value` (3),
+`tmpl_warn_update_failed` (1),
+`tmpl_update_available` (2),
    Number in parentheses = argument count; placeholder positions
-   must be identical across languages.
+   must be identical across languages.  
 
 ### Interactive menu
 `menu_status`, `menu_cron_label`, `menu_db_label`,
 `menu_files_tracked`, `menu_logsize_label`, `menu_paths`,
 `menu_script`, `menu_database`, `menu_logdir`,
-`opt_dry_run`, `opt_help`, `opt_log`, `opt_quiet`,
+`opt_checksum`, `opt_dry_run`,
+`opt_help`,
+`opt_log`,
+`opt_quiet`,
 `opt_reset_db`, `opt_schedule`, `opt_unschedule`,
-`opt_verbose`, `opt_version`
+`opt_verbose`,
+`opt_version`
+
+
 
 ## Removals
 - `info_initialized` (removed v1.0.0 pre-release; consumer was dropped
