@@ -22,3 +22,6 @@ coverage/
 # Temp files
 *.tmp
 *.temp
+
+# User files
+to-do.txt
