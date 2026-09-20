@@ -3,6 +3,7 @@
 *.out
 
 # Editor files
+.code-workspace
 .vscode/
 .idea/
 *.swp
@@ -24,4 +25,5 @@ coverage/
 *.temp
 
 # User files
+test-report.txt
 to-do.txt

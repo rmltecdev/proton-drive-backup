@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 
-# ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 #
 # Proton Drive Backup
 #
-# ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 #
 # Purpose   Backup tool for Proton Drive CLI
 #           This is an unofficial community tool. Proton
@@ -20,7 +20,7 @@
 #
 # License   Licensed under the MIT License
 #
-# ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 #
 # Localization  Ensure language files are in same
 #               directory as the script; languages 
@@ -29,11 +29,11 @@
 #               [DE] German, generic
 #               [TH] Thai
 #
-# ──────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 
 
 
-# ───── Error handling ─────────────────────────────────
+# ───── Error handling ─────────────────────────────────────
 
 set -uo pipefail
 
@@ -47,12 +47,12 @@ set -uo pipefail
 
 
 
-# ───── Variables declaration ──────────────────────────
+# ───── Variables declaration ──────────────────────────────
 
 APP_NAME="≡ Proton Drive Backup ≡"
 
-VERSION="1.0.0"
-BUILD_DATE="2026-09-09"
+VERSION="1.1.0"
+BUILD_DATE="2026-09-20"
 
 export PATH="$HOME/bin:$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -63,8 +63,7 @@ SCRIPT_NAME="$(basename "$0")"
 SCRIPT_DIR="$(dirname "$(realpath "$0")")"
 SCRIPT_PATH="$(realpath "$0")"
 PREVIOUS_DB_PATH="/dev/null"    # Previous DB state (path to file, NOT
-                                # content — avoids ARG_MAX with 100k+
-                                # files)
+                                # content — avoids ARG_MAX with 100k+ files)
 # Upload flags
 UPLOAD_SKIP_THUMBNAILS="--skip-thumbnails"
 
@@ -116,7 +115,7 @@ FORMATTING_HEADER="\033[1;34m"
 
 
 
-# ───── Low-Level Logging (file only) ──────────────────
+# ───── Low-Level Logging (file only) ──────────────────────
 
 log() {
     local message
@@ -131,12 +130,15 @@ log() {
 
 
 
+# ───── Thai language handling ─────────────────────────────
 # Thai zero-width combining marks: vowels/tone signs above and
 # below the baseline (U+0E31, U+0E34-U+0E3A, U+0E47-U+0E4E).
 # They render at width 0 but count in ${#var}. Defined ONCE.
 THAI_ZW_CHARS=$'\u0e31\u0e34\u0e35\u0e36\u0e37\u0e38\u0e39\u0e3a\u0e47\u0e48\u0e49\u0e4a\u0e4b\u0e4c\u0e4d\u0e4e'
 
-# ───── Display width: glyph count minus zero-width marks ─────
+
+
+# ───── Display width: glyph count minus zero-width marks ──
 # Requires an active UTF-8 locale: ${s:i:1} walks glyphs only
 # when the shell's multibyte mode is on (same dependency as
 # pad_to's glyph counting — C locale degrades to bytes).
@@ -151,11 +153,12 @@ display_width() {
 
 
 
-# ───── Display-width-correct padding ─────────────────
+# ───── Display-width-correct padding ──────────────────────
 # bash's printf counts BYTES for %-*s field widths; UTF-8
 # multibyte glyphs (ä ö ü ß) therefore shift columns left
 # (2 bytes = 1 glyph). ${#var} counts GLYPHS — we measure
 # ourselves and let printf print only ASCII spaces.
+
 pad_to() {
     local text width w n
     
@@ -172,7 +175,7 @@ pad_to() {
 
 
 
-# ───── Phase-Level Message Functions ──────────────────
+# ───── Phase-Level Message Functions ──────────────────────
 # Always write to log file. Console output controlled by QUIET_MODE.
 
 info() {
@@ -222,7 +225,7 @@ detail_fail() {
 
 
 
-# ───── Show Header ────────────────────────────────────
+# ───── Show Header ────────────────────────────────────────
 
 show_header() {
     printf "\n%b%b%b\n" "${FORMATTING_HEADER}" "$APP_NAME" "${FORMATTING_RESET}\n"
@@ -230,7 +233,7 @@ show_header() {
 
 
 
-# ───── Localization ───────────────────────────────────
+# ───── Localization ───────────────────────────────────────
 
 declare -A MSG
 
@@ -260,7 +263,7 @@ load_locale() {
 
 
 
-# ───── Load User Configuration ───────────────────────────────
+# ───── Load User Configuration ────────────────────────────
 # User decisions live in an external config file (XDG), never in
 # the script itself — updates can never overwrite user settings.
 # Abort contract (same as load_locale()): a missing or syntactically
@@ -300,7 +303,7 @@ load_config() {
 
 
 
-# ───── Show Menu (no arguments invoked) ───────────────
+# ───── Show Menu (no arguments invoked) ───────────────────
 
 is_cron_scheduled() {
     crontab -l 2>/dev/null | grep -q "$SCRIPT_PATH"
@@ -346,6 +349,7 @@ show_menu() {
 
     # shellcheck disable=SC2059
     printf "${MSG[tmpl_menu_invoke]}\n" "$SCRIPT_NAME"
+    printf "├ %s %s\n" "$(pad_to "--checksum" "$PAD_OPTION_WIDTH")" "${MSG[opt_checksum]}"
     printf "├ %s %s\n" "$(pad_to "--dry-run" "$PAD_OPTION_WIDTH")" "${MSG[opt_dry_run]}"
     printf "├ %s %s\n" "$(pad_to "--help" "$PAD_OPTION_WIDTH")" "${MSG[opt_help]}"
     printf "├ %s %s\n" "$(pad_to "--log" "$PAD_OPTION_WIDTH")" "${MSG[opt_log]}"
@@ -365,7 +369,7 @@ show_menu() {
 
 
 
-# ───── Man Page Style Help Viewer ─────────────────────────────────────
+# ───── Man Page Style Help Viewer ─────────────────────────
 
 show_help() {
     show_header
@@ -382,7 +386,7 @@ show_help() {
 
 
 
-# ───── Show Version ───────────────────────────────────
+# ───── Show Version ───────────────────────────────────────
 
 show_version() {
     show_header
@@ -406,7 +410,7 @@ show_version() {
 
 
 
-# ───── Show Log (tail -f with less) ───────────────────
+# ───── Show Log (tail -f with less) ───────────────────────
 
 show_log() {
     show_header
@@ -437,7 +441,7 @@ show_log() {
 
 
 
-# ───── Cron Management ────────────────────────────────
+# ───── Cron Management ────────────────────────────────────
 
 schedule_cron() {
     show_header
@@ -488,7 +492,7 @@ unschedule_cron() {
 
 
 
-# ───── Run Archive: compress previous runs' logs ─────
+# ───── Run Archive: compress previous runs' logs ──────────
 # Called at START of a new run. Stable runtime files are packed into
 # one timestamped tar.gz, then removed. Archive members keep their
 # stable names (runtime.log, transfer.log); only the archive name
@@ -523,7 +527,7 @@ archive_completed_runs() {
 
 
 
-# ───── Retention: keep only the newest N archived runs ─────
+# ───── Retention: keep only the newest N archived runs ────
 
 prune_old_runs() {
     local -a old_archives
@@ -538,7 +542,7 @@ prune_old_runs() {
 
 
 
-# ───── Dependency Checks ──────────────────────────────
+# ───── Dependency Checks ──────────────────────────────────
 
 check_dependencies() {
     local missing=()
@@ -574,7 +578,20 @@ check_dependencies() {
 
 
 
-# ───── Parse Command Line Arguments ───────────────────
+# ───── Load Existing Database ─────────────────────────────
+# PREV_MD5_MAP: rel_path → md5 (consumed by compare_and_upload)
+# PREV_META_MAP: rel_path → size TAB mtime_epoch TAB mtime_iso
+# (consumed by build_local_db as the fast path). Both maps are
+# rebuilt from the previous DB copy before every rebuild.
+declare -gA PREV_MD5_MAP=()
+declare -gA PREV_META_MAP=()
+
+# Fast-path control: --checksum forces full MD5 re-hash
+CHECKSUM_ONLY=false
+
+
+
+# ───── Parse Command Line Arguments ───────────────────────
 
 parse_args() {
     while [[ $# -gt 0 ]]; do
@@ -607,6 +624,11 @@ parse_args() {
                 RUN_BACKUP=true
                 shift
                 ;;
+            --checksum)
+                CHECKSUM_ONLY=true
+                RUN_BACKUP=true
+                shift
+                ;;
             --log)
                 SHOW_LOG=true
                 shift
@@ -632,7 +654,7 @@ parse_args() {
 
 
 
-# ───── Lock File Management ───────────────────────────
+# ───── Lock File Management ───────────────────────────────
 
 acquire_lock() {
     local pid start_time
@@ -675,7 +697,7 @@ release_lock() {
 
 
 
-# ───── Authentication Check ───────────────────────────
+# ───── Authentication Check ───────────────────────────────
 
 ensure_session() {
     info "${MSG[info_session_check]}"
@@ -686,14 +708,14 @@ ensure_session() {
     else
         warn "${MSG[info_auth_required]}"
 
+        echo ""
+        echo "  ${MSG[info_login_instruction]} proton-drive auth login"
+        echo ""
+
         if [[ "$DRY_RUN" == "true" ]]; then
             warn "${MSG[warn_dry_run_auth]}"
             return 1
         fi
-
-        echo ""
-        echo "${MSG[info_login_instruction]} proton-drive auth login"
-        echo ""
 
         if proton-drive auth login; then
             success "${MSG[info_login_success]}"
@@ -707,7 +729,7 @@ ensure_session() {
 
 
 
-# ───── Ensure Remote Directory Exists ─────────────────
+# ───── Ensure Remote Directory Exists ─────────────────────
 
 ensure_remote_dir() {
     local full_remote_path base subpath
@@ -800,199 +822,7 @@ handle_resize() {
 
 
 
-# ───── Local Database Building ────────────────────────
-
-build_local_db() {
-    info "${MSG[info_building_db]}"
-    log "[INFO] Starting database build."
-
-    local file_count total_size total_files src_dir
-    
-    file_count=0
-    total_size=0
-
-    # ── Pass 1: pre-count files (metadata traversal only, no hashing) ──
-    # Provides the denominator for the progress bar. Cheap compared to
-    # the MD5 pass that follows.
-    total_files=0
-
-    for src_dir in "${SOURCE_DIRS[@]}"; do
-        [[ -d "$src_dir" ]] || continue
-        local n
-
-        n=0
-        n=$(find "$src_dir" -type f -not -type l -print 2>/dev/null | wc -l)
-        total_files=$(( total_files + n ))
-    done
-    log "[INFO] File pre-count for progress display: $total_files files."
-
-    local tmp_entries
-    
-    tmp_entries=$(mktemp) || { fail "Cannot create temp file for database build."; exit 1; }
-
-    for src_dir in "${SOURCE_DIRS[@]}"; do
-        if [[ ! -d "$src_dir" ]]; then
-            warn "${MSG[warn_skip_missing_dir]} $src_dir"
-            continue
-        fi
-
-        info "${MSG[label_scan]} $src_dir"
-
-        while IFS= read -r -d '' file; do
-
-            # Include source dir basename in relative path for
-            # consistent mapping e.g. $HOME/templates/file.txt →
-            # templates/file.txt
-
-            local rel_base rel_path checksum file_size file_mtime_epoch file_mtime
-
-            rel_base="${src_dir#"$SOURCE_BASE"/}"
-            rel_path="${rel_base}/${file#"$src_dir"/}"
-            rel_path="${rel_path#/}"
-
-            checksum=$(md5sum "$file" 2>/dev/null | awk '{print $1}') || {
-                warn "${MSG[warn_file_unreadable]} $file"
-                continue
-            }
-
-            file_size=$(stat -c%s "$file" 2>/dev/null) || file_size=0
-            file_mtime_epoch=$(stat -c%Y "$file" 2>/dev/null) || file_mtime_epoch=0
-            file_mtime=$(date -d "@$file_mtime_epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null) \
-                || file_mtime="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
-
-            jq -nc \
-                --arg lp "$file" \
-                --arg rp "$rel_path" \
-                --arg md5 "$checksum" \
-                --argjson sz "$file_size" \
-                --arg mt "$file_mtime" \
-                '{local_path: $lp, relative_path: $rp, md5: $md5, size_bytes: $sz, mtime: $mt}' >> "$tmp_entries"
-
-            file_count=$((file_count + 1))
-            total_size=$((total_size + file_size))
-
-            # Progress bar (verbose only)
-            if [[ "$VERBOSE" == "true" ]] && (( file_count % 1000 == 0 )); then
-                show_progress_bar "$file_count" "$total_files" "$total_size" "${MSG[label_scan]}"
-            fi
-        done < <(find "$src_dir" -type f -not -type l -print0 2>/dev/null)
-    done
-
-    if [[ "$file_count" -eq 0 ]]; then
-        warn "$(printf '%s\n         %s' "${MSG[warn_db_empty]}" " ${CONFIG_FILE}")"
-    fi
-
-    local srcdirs_json tmp_output human_size
-    
-    srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
-    tmp_output=$(mktemp) || { fail "Cannot create temp file for output."; rm -f "$tmp_entries"; exit 1; }
-
-    if [[ -s "$tmp_entries" ]]; then
-        jq -n \
-            --arg ver "1.0" \
-            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --slurpfile entries "$tmp_entries" \
-            --argjson srcdirs "$srcdirs_json" \
-            --arg rbp "$REMOTE_BASE_PATH" \
-            '{version: $ver, created_at: $created, last_modified: $modified, entries: $entries, source_dirs: $srcdirs, remote_base: $rbp}' > "$tmp_output"
-    else
-        jq -n \
-            --arg ver "1.0" \
-            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --argjson srcdirs "$srcdirs_json" \
-            --arg rbp "$REMOTE_BASE_PATH" \
-            '{version: $ver, created_at: $created, last_modified: $modified, entries: [], source_dirs: $srcdirs, remote_base: $rbp}' > "$tmp_output"
-    fi
-
-    if ! mv "$tmp_output" "$CHECKSUM_DB"; then
-        fail "Failed to finalize checksum database (mv failed)."
-        rm -f "$tmp_entries"
-        exit 1
-    fi
-    rm -f "$tmp_entries"
-
-    # Console gets human-readable size; the log below keeps raw
-    # bytes (grep- and diff-friendly for automated consumption).
-    human_size=$(numfmt --to=iec-i --suffix=B "$total_size" 2>/dev/null) \
-        || human_size="${total_size}B"
-
-    # shellcheck disable=SC2059
-    info "$(printf "${MSG[tmpl_db_built]}" "$file_count" "$human_size")"
-    log "[INFO] Local database rebuilt with $file_count entries, $total_size bytes."
-}
-
-
-
-# ───── Load Existing Database ─────────────────────────
-
-declare -gA PREV_MD5_MAP=()
-
-load_local_db() {
-    if [[ "$RESET_DB" == "true" ]]; then
-        warn "${MSG[warn_rebuild_db]}"
-        PREVIOUS_DB_PATH="/dev/null"
-        build_local_db
-        PREV_MD5_MAP=()
-        log "[INFO] Previous DB discarded (--reset-db); 0 entries loaded."
-        return 0
-    fi
-
-    if [[ ! -f "$CHECKSUM_DB" ]]; then
-        info "${MSG[info_no_db_found]}"
-        PREVIOUS_DB_PATH="/dev/null"
-        build_local_db
-        PREV_MD5_MAP=()
-        return 0
-    fi
-
-    # Copy previous DB to a TEMP FILE before rebuilding.
-    local prev_tmp prev_count loaded
-
-    prev_tmp=$(mktemp) || { fail "Cannot create temp file for previous DB."; exit 1; }
-    cp "$CHECKSUM_DB" "$prev_tmp"
-    PREVIOUS_DB_PATH="$prev_tmp"
-
-    prev_count=$(jq '.entries | length' "$PREVIOUS_DB_PATH" 2>/dev/null) || prev_count=0
-
-    # Rebuild current DB (overwrites $CHECKSUM_DB, previous is safe in $prev_tmp)
-    build_local_db
-
-    # shellcheck disable=SC2059
-    info "$(printf "${MSG[tmpl_prev_db_loaded]}" "$prev_count")"
-    log "[INFO] Previous DB loaded ($prev_count entries); current DB rebuilt."
-
-    # ── Build lookup table with progress bar (verbose only) ──
-    if [[ "$VERBOSE" == "true" && "$prev_count" -gt 0 ]]; then
-        info "${MSG[info_lookup_build]}"
-    fi
-    if [[ "$VERBOSE" == "true" && "$prev_count" -gt 0 ]]; then
-        show_progress_bar 0 "$prev_count" 0 "${MSG[label_load]}"
-    fi
-
-    loaded=0
-
-    while IFS=$'\t' read -r path md5; do
-        [[ -n "$path" ]] && PREV_MD5_MAP["$path"]="$md5"
-        loaded=$((loaded + 1))
-        if [[ "$VERBOSE" == "true" ]] && (( loaded % 5000 == 0 )); then
-            show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
-        fi
-    done < <(jq -r '.entries[] | [.relative_path, .md5] | @tsv' \
-               "$PREVIOUS_DB_PATH" 2>/dev/null)
-
-    if [[ "$VERBOSE" == "true" ]]; then
-        show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
-        sleep 1         # brief final state visibility
-    fi
-
-    log "[INFO] Loaded $loaded entries into lookup table."
-}
-
-
-
-# ───── Escape Glob Metacharacters ─────────────────────
+# ───── Escape Glob Metacharacters ─────────────────────────
 # proton-drive CLI performs its own glob expansion on local file paths.
 # Characters [ ] ? * { } are interpreted as glob patterns, not literals.
 # Workaround: wrap each metacharacter in a character class containing
@@ -1025,7 +855,297 @@ escape_glob_chars() {
 
 
 
-# ───── Compare and Upload ─────────────────────────────
+# ───── Local Database Building ────────────────────────────
+
+build_local_db() {
+    info "${MSG[info_building_db]}"
+    log "[INFO] Starting database build."
+
+    local file_count total_size total_files src_dir fast_reused progress_interval
+
+    file_count=0
+    total_size=0
+    fast_reused=0
+
+    # ── Pass 1: pre-count files (metadata traversal only, no hashing) ──
+    total_files=0
+
+    for src_dir in "${SOURCE_DIRS[@]}"; do
+        [[ -d "$src_dir" ]] || continue
+        local n
+
+        n=0
+        n=$(find "$src_dir" -type f -not -type l -print 2>/dev/null | wc -l)
+        total_files=$(( total_files + n ))
+    done
+    log "[INFO] File pre-count for progress display: $total_files files."
+
+    # ── Progress update frequency (scan phase, staged) ──
+    if [[ "$total_files" -lt 1000 ]]; then
+        progress_interval=1
+    elif [[ "$total_files" -lt 100000 ]]; then
+        progress_interval=100
+    else
+        progress_interval=1000
+    fi
+
+    local tmp_entries tmp_edge tmp_json_entries tmp_output
+
+    tmp_entries=$(mktemp) || { fail "Cannot create temp file for database build."; exit 1; }
+    tmp_edge=$(mktemp) || { fail "Cannot create temp file for edge-case entries."; rm -f "$tmp_entries"; exit 1; }
+
+    for src_dir in "${SOURCE_DIRS[@]}"; do
+        if [[ ! -d "$src_dir" ]]; then
+            warn "${MSG[warn_skip_missing_dir]} $src_dir"
+            continue
+        fi
+
+        info "${MSG[label_scan]} $src_dir"
+        
+        # Anchor the bar from the very start of the phase
+        progress_anchor
+
+        while IFS= read -r -d '' file; do
+
+            # Include source dir basename in relative path for
+            # consistent mapping e.g. $HOME/templates/file.txt →
+            # templates/file.txt
+
+            local rel_base rel_path checksum file_size file_mtime_epoch file_mtime
+
+            checksum=""
+
+            rel_base="${src_dir#"$SOURCE_BASE"/}"
+            rel_path="${rel_base}/${file#"$src_dir"/}"
+            rel_path="${rel_path#/}"
+
+            # ONE stat for both attributes — halves the stat calls
+            # of the old path and provides the metadata contract of
+            # the fast path
+            if ! meta=$(stat -c '%s %Y' "$file" 2>/dev/null); then
+                warn "${MSG[warn_file_unreadable]} $file"
+                continue
+            fi
+
+            read -r file_size file_mtime_epoch <<< "$meta"
+
+            # ── Fast path: size + mtime unchanged → reuse MD5 ──
+            # Skips md5sum AND the per-file date conversion. Only
+            # reachable when PREV_META_MAP is populated (a previous
+            # DB exists and --checksum is not set).
+            if [[ "$CHECKSUM_ONLY" != "true" && -n "${PREV_META_MAP[$rel_path]:-}" ]]; then
+                local p_size p_mtime_epoch p_mtime_iso
+
+                IFS=$'\t' read -r p_size p_mtime_epoch p_mtime_iso \
+                    <<< "${PREV_META_MAP[$rel_path]}"
+
+                if [[ "$p_size" == "$file_size" && "$p_mtime_epoch" == "$file_mtime_epoch" ]] \
+                    && [[ -n "${PREV_MD5_MAP[$rel_path]:-}" ]]; then
+                    checksum="${PREV_MD5_MAP[$rel_path]}"
+                    file_mtime="$p_mtime_iso"
+                    fast_reused=$((fast_reused + 1))
+                fi
+            fi
+
+            # ── Slow path: full hash for new or changed files ──
+            if [[ -z "$checksum" ]]; then
+                checksum=$(md5sum "$file" 2>/dev/null | awk '{print $1}') || {
+                    warn "${MSG[warn_file_unreadable]} $file"
+                    continue
+                }
+
+                # shellcheck disable=SC2034
+                file_mtime=$(date -u -d "@$file_mtime_epoch" '+%Y-%m-%dT%H:%M:%SZ' 2>/dev/null) \
+                    || file_mtime="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+            fi
+
+            # ── TSV collection (fast path for the common case) ──
+            # One builtin printf per file instead of one jq spawn per
+            # file (~118k spawns saved). Delimiter \x1f (Unit
+            # Separator): survives spaces and Unicode filenames.
+            # Edge-case files (control chars in name) take the slow
+            # per-file jq route — correctness over speed.
+            if [[ "$file" == *$'\x1f'* || "$file" == *$'\n'* || "$file" == *$'\t'* ]]; then
+                jq -nc --arg lp "$file" --arg rp "$rel_path" --arg md5 "$checksum" \
+                    --argjson sz "$file_size" --argjson me "$file_mtime_epoch" \
+                    '{local_path: $lp, relative_path: $rp, md5: $md5,
+                      size_bytes: $sz, mtime_epoch: $me}' >> "$tmp_edge"
+            else
+                printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\n' \
+                    "$file" "$rel_path" "$checksum" "$file_size" "$file_mtime_epoch" \
+                    >> "$tmp_entries"
+            fi
+
+            file_count=$((file_count + 1))
+            total_size=$((total_size + file_size))
+
+            local progress_interval
+            
+            if [[ "$VERBOSE" == "true" ]]; then
+                show_progress_bar "$file_count" "$total_files" "$total_size" "${MSG[label_scan]}"
+                sleep 1  # brief final state visibility
+            fi
+        done < <(find "$src_dir" -type f -not -type l -print0 2>/dev/null)
+    done
+
+    if [[ "$file_count" -eq 0 ]]; then
+        warn "$(printf '%s\n         %s' "${MSG[warn_db_empty]}" " ${CONFIG_FILE}")"
+    fi
+
+    local srcdirs_json tmp_output human_size
+    
+    srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
+    tmp_output=$(mktemp) || { fail "Cannot create temp file for output."; rm -f "$tmp_entries"; exit 1; }
+
+    # ── Single-shot conversion: collected TSV → JSON entries ──
+    # One jq invocation for the whole dataset. jq's todate is UTC by
+    # definition — this replaces every per-file date conversion and
+    # makes the timezone bug structurally impossible.
+
+    # shellcheck disable=SC2034
+    jq -R -s '
+        (if . == "" then "[]" else
+          rtrimstr("\n") | split("\n")
+          | map(split("\u001f"))
+          | map({ local_path: .[0],
+                  relative_path: .[1],
+                  md5: .[2],
+                  size_bytes: (.[3] | tonumber),
+                  mtime_epoch: (.[4] | tonumber),
+                  mtime: ((.[4] | tonumber) | todate) })
+        end)' "$tmp_entries" > "${tmp_entries}.json" \
+        && tmp_json_entries="${tmp_entries}.json"
+
+    srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
+    tmp_output=$(mktemp) || {
+        fail "Cannot create temp file for output."
+        rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json"
+        exit 1
+    }
+
+    # ── Final wrapper: header + main entries + edge-case entries ──
+    # $tmp_edge holds complete JSON objects (one per line); --slurpfile
+    # reads the MAIN array, edge entries get parsed separately.
+    if [[ -s "${tmp_entries}.json" ]]; then
+        jq -n \
+            --arg ver "1.0" \
+            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --slurpfile entries "${tmp_entries}.json" \
+            --argjson srcdirs "$srcdirs_json" \
+            --arg rbp "$REMOTE_BASE_PATH" \
+            '{version: $ver, created_at: $created, last_modified: $modified,
+              entries: ($entries[0] + [inputs]), source_dirs: $srcdirs, remote_base: $rbp}' \
+            < <(cat /dev/null "$tmp_edge") > "$tmp_output"
+    else
+        jq -n \
+            --arg ver "1.0" \
+            --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
+            --argjson srcdirs "$srcdirs_json" \
+            --arg rbp "$REMOTE_BASE_PATH" \
+            '{version: $ver, created_at: $created, last_modified: $modified,
+              entries: [inputs], source_dirs: $srcdirs, remote_base: $rbp}' \
+            < <(cat /dev/null "$tmp_edge") > "$tmp_output"
+    fi
+
+    if ! mv "$tmp_output" "$CHECKSUM_DB"; then
+        fail "Failed to finalize checksum database (mv failed)."
+        rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json" "$tmp_output"
+        exit 1
+    fi
+    rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json"
+
+    # Console gets human-readable size; the log below keeps raw
+    # bytes (grep- and diff-friendly for automated consumption).
+    human_size=$(numfmt --to=iec-i --suffix=B "$total_size" 2>/dev/null) \
+        || human_size="${total_size}B"
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_db_built]}" "$file_count" "$human_size")"
+    log "[INFO] Local database rebuilt with $file_count entries, $total_size bytes."
+    log "[INFO] Fast path reused stored MD5 for $fast_reused of $file_count files."
+}
+
+
+
+# ───── Load Existing Database ─────────────────────────────
+
+load_local_db() {
+    # Fresh maps for every run — leftovers from a previous source
+    # would fabricate fast-path hits and skip real changes.
+    PREV_MD5_MAP=()
+    PREV_META_MAP=()
+
+    if [[ "$RESET_DB" == "true" ]]; then
+        warn "${MSG[warn_rebuild_db]}"
+        PREVIOUS_DB_PATH="/dev/null"
+        build_local_db
+        log "[INFO] Previous DB discarded (--reset-db); 0 entries loaded."
+        return 0
+    fi
+
+    if [[ ! -f "$CHECKSUM_DB" ]]; then
+        info "${MSG[info_no_db_found]}"
+        PREVIOUS_DB_PATH="/dev/null"
+        build_local_db
+        return 0
+    fi
+
+    # Copy previous DB to a TEMP FILE before rebuilding.
+    local prev_tmp prev_count loaded
+
+    prev_tmp=$(mktemp) || { fail "Cannot create temp file for previous DB."; exit 1; }
+    cp "$CHECKSUM_DB" "$prev_tmp"
+    PREVIOUS_DB_PATH="$prev_tmp"
+
+    prev_count=$(jq '.entries | length' "$PREVIOUS_DB_PATH" 2>/dev/null) || prev_count=0
+
+    # ── Build BOTH lookup maps BEFORE the rebuild ──
+    # build_local_db() consumes PREV_META_MAP as its fast path
+    # (size + mtime match → reuse the stored MD5 instead of
+    # re-hashing), so the maps must be populated before the call.
+    # PREV_META_MAP stays empty on first runs and with --checksum —
+    # the fast path then degrades to the full-hash path by itself.
+    loaded=0
+
+    if [[ "$VERBOSE" == "true" && "$prev_count" -gt 0 && "$CHECKSUM_ONLY" != "true" ]]; then
+        info "${MSG[info_lookup_build]}"
+        show_progress_bar 0 "$prev_count" 0 "${MSG[label_load]}"
+    fi
+
+    while IFS=$'\t' read -r path md5 size mtime_epoch mtime_iso; do
+        [[ -n "$path" ]] || continue
+        PREV_MD5_MAP["$path"]="$md5"
+        PREV_META_MAP["$path"]="${size}"$'\t'"${mtime_epoch}"$'\t'"${mtime_iso}"
+        loaded=$((loaded + 1))
+        if [[ "$VERBOSE" == "true" ]] && (( loaded % 5000 == 0 )); then
+            show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
+        fi
+    done < <(jq -r '.entries[] | [.relative_path, .md5, (.size_bytes|tostring),
+                   (.mtime_epoch // (.mtime | fromdateiso8601? // 0) | tostring),
+                   (.mtime // 0)] | @tsv' \
+                   "$PREVIOUS_DB_PATH" 2>/dev/null)
+
+    # Rebuild current DB — fast path active via PREV_META_MAP
+    # (previous is safe in $prev_tmp; compare_and_delete reads it)
+    build_local_db
+
+    # shellcheck disable=SC2059
+    info "$(printf "${MSG[tmpl_prev_db_loaded]}" "$prev_count")"
+    log "[INFO] Previous DB loaded ($prev_count entries); current DB rebuilt."
+
+    if [[ "$VERBOSE" == "true" ]]; then
+        show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
+        sleep 1         # brief final state visibility
+    fi
+
+    log "[INFO] Loaded $loaded entries into lookup tables."
+}
+
+
+
+# ───── Compare and Upload ─────────────────────────────────
 
 compare_and_upload() {
     info "${MSG[info_compare_upload]}"
@@ -1046,9 +1166,11 @@ compare_and_upload() {
 
     # Progress update frequency
     if [[ "$total_to_process" -lt 1000 ]]; then
-        progress_interval=10
-    else
+        progress_interval=1
+    elif [[ "$total_files" -lt 100000 ]]; then
         progress_interval=100
+    else
+        progress_interval=1000
     fi
 
     # Unified counter: every file this phase processes (skip AND upload)
@@ -1060,11 +1182,13 @@ compare_and_upload() {
     else
         exec 3>/dev/null
     fi
-
-    # Anchor the bar from the very start of the phase
+    
     if [[ "$VERBOSE" == "true" ]]; then
         show_progress_bar 0 "$total_to_process" 0 "${MSG[label_process]}"
     fi
+    
+    # Anchor the bar from the very start of the phase
+    progress_anchor
 
     while IFS= read -r entry; do
         [[ -z "$entry" ]] && continue
@@ -1152,20 +1276,27 @@ compare_and_upload() {
 
     exec 3>&-
 
+    # ── Consolidated phase summary: one sentence for console and log ──
+        # Console gets human-readable size; the log line below keeps
+        # raw bytes (grep- and diff-friendly for automated consumption).
+        local human_bytes
+        human_bytes=$(numfmt --to=iec-i --suffix=B "$UPLOAD_BYTES" 2>/dev/null) \
+            || human_bytes="${UPLOAD_BYTES}B"
+
     # shellcheck disable=SC2059
-    info "$(printf "${MSG[tmpl_upload_phase]}" "$UPLOAD_COUNT" "$SKIP_COUNT")"
-    log "[INFO] Upload phase: $UPLOAD_COUNT uploaded, $SKIP_COUNT skipped, $UPLOAD_BYTES bytes."
+    info "$(printf "${MSG[tmpl_upload_phase]}" "$UPLOAD_COUNT" "$SKIP_COUNT" "$human_bytes")"
+    log "[INFO] Upload phase complete: $UPLOAD_COUNT uploaded, $SKIP_COUNT skipped, $UPLOAD_BYTES bytes."
 }
 
 
 
-# ───── Compare and Delete ─────────────────────────────
+# ───── Compare and Delete ─────────────────────────────────
 
 compare_and_delete() {
     info "${MSG[info_compare_delete]}"
     log "[INFO] Delete comparison phase started."
 
-    local prev_paths_file curr_paths_file orphan_count
+    local prev_paths_file curr_paths_file orphan_count progress_interval
 
     prev_paths_file=$(mktemp) || { fail "Cannot create temp file."; return 1; }
     jq -r '.entries[].relative_path' "$PREVIOUS_DB_PATH" 2>/dev/null \
@@ -1184,18 +1315,24 @@ compare_and_delete() {
         return 0
     fi
 
+    # Anchor the bar from the very start of the phase
+    progress_anchor
+    
     if [[ "$VERBOSE" == "true" ]]; then
         show_progress_bar 0 "$orphan_count" 0 "${MSG[label_delete]}"
     fi
 
     local progress_interval processed
 
+    # Progress update frequency
     if [[ "$orphan_count" -lt 100 ]]; then
         progress_interval=1
+    elif [[ "$total_files" -lt 100000 ]]; then
+        progress_interval=100
     else
-        progress_interval=10
+        progress_interval=1000
     fi
-
+    
     processed=0
 
     while IFS= read -r prev_rel; do
@@ -1280,7 +1417,7 @@ compare_and_delete() {
 
 
 
-# ───── Progress Bar Helpers ───────────────────────────
+# ───── Progress Bar Helpers ───────────────────────────────
 # A scroll region confines all regular output to the lines
 # above; the LAST terminal line is permanently reserved for
 # the progress bar and can never be scrolled onto. Per-file
@@ -1292,6 +1429,21 @@ PROGRESS_ENABLED=false
 PROGRESS_DREW=false    # true once any bar was actually drawn
 PROGRESS_LINES=0
 PROGRESS_COLS=80
+PROGRESS_START_EPOCH=0
+PROGRESS_PHASE_EPOCH=0
+
+
+
+# ───── Progress indicator bar ─────────────────────────────
+# Sets the per-phase reference time for ETA calculation.
+# Each phase (load, scan, upload, delete) anchors itself
+# right before its processing loop — ETAs therefore measure
+# only their own workload, never distorted by preceding
+# phases. Called exactly once per phase.
+
+progress_anchor() {
+    PROGRESS_PHASE_EPOCH=$(date +%s)
+}
 
 progress_init() {
     # --quiet is an output contract (warnings + summary only), not
@@ -1300,6 +1452,8 @@ progress_init() {
     [[ "$QUIET_MODE" == "true" ]] && return 0
 
     [[ -t 2 ]] || return 0
+    PROGRESS_START_EPOCH=$(date +%s)
+    PROGRESS_PHASE_EPOCH=$PROGRESS_START_EPOCH
     PROGRESS_LINES=$(tput lines 2>/dev/null) || PROGRESS_LINES=24
     PROGRESS_COLS=$(tput cols 2>/dev/null) || PROGRESS_COLS=80
     printf "\033[2J\033[1;%dr\033[H" "$(( PROGRESS_LINES - 1 ))" >&2
@@ -1310,8 +1464,11 @@ progress_init() {
 }
 
 show_progress_bar() {
-    local current total bytes label term_width term_lines pct human_bytes stats stats_len label_len bar_width filled empty bar j
-
+    local current total bytes label
+    local term_width term_lines human_bytes stats stats_len label_len pct pct_len
+    local bar_width filled bar j tail tail_raw tail_len
+    local now_epoch elapsed rate remaining eta_epoch eta_str
+    
     current="$1"
     total="$2"
     bytes="${3:-0}"
@@ -1320,11 +1477,12 @@ show_progress_bar() {
     if [[ ! -t 2 || "$PROGRESS_ENABLED" != "true" ]]; then
         return 0
     fi
+    if [[ "$VERBOSE" != "true" ]]; then
+        return 0
+    fi
 
     # Geometry comes exclusively from the cached values measured
-    # ONCE in progress_init() — never re-measured here. A second
-    # tput call can disagree with the cached value in multiplexers,
-    # producing bars on different lines and of different widths.
+    # ONCE in progress_init() — never re-measured here.
     term_width="$PROGRESS_COLS"
     term_lines="$PROGRESS_LINES"
     pct=0
@@ -1334,25 +1492,60 @@ show_progress_bar() {
     human_bytes=$(numfmt --to=iec-i --suffix=B "$bytes" 2>/dev/null) \
         || human_bytes="${bytes}B"
 
-    stats="$current/$total ($pct%, $human_bytes)"
+    # ── Stats layout: "N/M files (Size)" ──
+    files_string="$current/$total"
+    stats="$files_string ${MSG[label_files]} ($human_bytes)"
     stats_len=${#stats}
     label_len=${#label}
-    bar_width=$(( term_width - stats_len - label_len - 5 ))
+    pct_len=4
+  
+    now_epoch=$(date +%s)
+    elapsed=0
 
-    [[ "$bar_width" -lt 10 ]] && bar_width=10
+    if (( PROGRESS_PHASE_EPOCH > 0 && current > 0 )); then
+        elapsed=$(( now_epoch - PROGRESS_PHASE_EPOCH ))
+    fi
+
+    # ── Tail: raw variant first, normalized to 20 columns below ──
+    # Values longer than 20 columns are truncated by the progress bar 
+    # normalizer; keep all ETA-related strings ≤ 20 columns.
+    if (( current == total && total > 0 )); then
+        tail_raw="${MSG[info_eta_completed]}"
+    elif (( elapsed >= 5 && PROGRESS_PHASE_EPOCH > 0 && current > 0 )); then
+        rate=$(awk -v c="$current" -v e="$elapsed" \
+            'BEGIN { if (e>0) printf "%.2f", c/e; else print 0 }')
+        remaining=$(( total - current ))
+        eta_epoch=$(awk -v r="$rate" -v f="$remaining" -v n="$now_epoch" \
+            'BEGIN { if (r>0) printf "%.0f", n + f/r; else print n }')
+        eta_str=$(date -d "@$eta_epoch" '+%Y-%m-%d %H:%M')
+        tail_raw="${MSG[info_eta_calculating_prefix]} $eta_str"
+    else
+        tail_raw="${MSG[info_eta_calculating]}"
+    fi
+
+    # Normalize tail to EXACTLY 20 columns: pad short translations,
+    # truncate overlong ones — bar geometry is locale-proof.
+    # shellcheck disable=SC2034
+    tail=$(printf '%-20.20s' "$tail_raw")
+    tail_len=20
+
+    # ── Width budget ──
+    bar_width=$(( term_width - label_len - stats_len - pct_len - tail_len - 6 ))
+    pct_str=$(printf '%4s' "$pct%")
+
+    if (( bar_width < 4 )); then
+        bar_width=4
+    fi
 
     filled=$(( pct * bar_width / 100 ))
     [[ "$filled" -gt "$bar_width" ]] && filled=$bar_width
-    empty=$(( bar_width - filled ))
 
     bar=""
     for ((j = 0; j < filled; j++)); do bar+="▓"; done
-    for ((j = 0; j < empty; j++)); do bar+="░"; done
+    for ((j = filled; j < bar_width; j++)); do bar+="░"; done
 
-    # Absolute positioning on the reserved line: save cursor,
-    # draw, restore cursor — messages continue above unharmed.
-    printf "\0337\033[%d;1H${INDICATOR_INFO}%s${FORMATTING_RESET} %s %s\033[K\0338" \
-        "$term_lines" "$label" "$bar" "$stats" >&2
+    printf "\0337\033[%d;1H${INDICATOR_INFO}%s${FORMATTING_RESET} %s %s %s %s\033[K\0338" \
+        "$term_lines" "$label" "$stats" "$bar" "$pct_str" "$tail_raw" >&2
 
     PROGRESS_DREW=true
 }
@@ -1379,7 +1572,7 @@ progress_teardown() {
 
 
 
-# ───── Print Summary ──────────────────────────────────
+# ───── Print Summary ──────────────────────────────────────
 
 print_summary() {
     echo ""
@@ -1398,7 +1591,7 @@ print_summary() {
 
 
 
-# ───── Cleanup ────────────────────────────────────────
+# ───── Cleanup ────────────────────────────────────────────
 
 cleanup() {
     rm -rf "$CONFIG_DIR/tmp" 2>/dev/null || true
@@ -1429,7 +1622,7 @@ cleanup() {
 
 
 
-# ───── Main Execution ─────────────────────────────────
+# ───── Main Execution ─────────────────────────────────────
 
 main() {
     # Locale first (localized errors for unknown options), then args,
@@ -1547,10 +1740,10 @@ main() {
     ensure_remote_dir "$REMOTE_BASE_PATH"
 
     info "${MSG[info_config_header]}"
-    printf "       %s %s\n" "$(pad_to "${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
-    printf "       %s %s\n" "$(pad_to "${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
-    printf "       %s %s\n" "$(pad_to "${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
-    printf "       %s %s\n" "$(pad_to "${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
+    printf "       %s %s\n" "$(pad_to "- ${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
+    printf "       %s %s\n" "$(pad_to "- ${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
+    printf "       %s %s\n" "$(pad_to "- ${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
+    printf "       %s %s\n" "$(pad_to "- ${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
     
     load_local_db
     compare_and_upload
