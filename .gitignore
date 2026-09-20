@@ -3,6 +3,7 @@
 *.out
 
 # Editor files
+.code-workspace
 .vscode/
 .idea/
 *.swp

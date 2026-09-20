@@ -7,10 +7,10 @@
    ● Info Checking authentication session...
    ● Success Session is valid.
    ● Info Backup Configuration:
-          Conflict strategy        replace
-          Delete mode              trash
-          Dry run                  false
-          Reset checksum database  false
+          - Conflict strategy        replace
+          - Delete mode              trash
+          - Dry run                  false
+          - Reset checksum database  false
    ● Info Scan /home/martin/Documents
    ● Info Scan /home/martin/Music
    ● Info Scan /home/martin/Pictures
@@ -21,7 +21,7 @@
    ● Info Comparing local files against previous backup state...
  
  
-   ● Processing ▓▓▓░░░░░░░░░░░░░░░░░░░░░ 1460/11764 (12%, 32GiB)
+   ● Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░░  12% ETA 2026-09-20 18:30
 ```
 
 #### Table of Contents
@@ -193,4 +193,4 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 ### Version
 
 **Version:** v1.1.0
-Build Date:  2026-09-15
+Build Date:  2026-09-20

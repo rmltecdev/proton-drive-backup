@@ -1,4 +1,4 @@
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 # proton-drive-backup — Thai localization
 #
 # Place in same directory as the proton-drive-backup script.
@@ -8,10 +8,10 @@
 #
 # Copyright (c) 2026 RML Tec Dev
 # (not affiliated with Proton AG)
-# ──────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────────────────────
 
-# ───── Status labels (progress indicator) ─────────────────
-MSG[status_preparing]="กำลังเตรียมข้อมูล…"
+# ───── Status labels (progress indicator) ────────────────────
+MSG[status_preparing]="กำลังวิเคราะห์ข้อมูล..."
 MSG[label_scan]="กำลังสแกน"
 MSG[label_load]="กำลังโหลด"
 MSG[label_process]="กำลังประมวลผล"
@@ -22,8 +22,8 @@ MSG[info_eta_calculating_prefix]="ETA"
 MSG[info_eta_calculating]="กำลังคำวนคานวณ"  # max. 20 fixed-width characters to avoid truncating value
 MSG[info_eta_completed]="…เสร็จสมบูรณ์"     # max. 20 fixed-width characters to avoid truncating value
 
-# ───── Initialization and configuration ────────────────
-PAD_CONFIG_WIDTH="18"
+# ───── Initialization and configuration ───────────────────
+PAD_CONFIG_WIDTH="19"
 MSG[info_config_header]="การตั้งค่าการสำรองข้อมูล"
 MSG[info_conflict_strategy]="กลยุทธ์ความขัดแย้ง"
 MSG[info_delete_mode]="โหมดการลบ"
@@ -31,7 +31,7 @@ MSG[info_dry_run]="การดำเนินงานทดสอบ"
 MSG[info_reset_db]="รีเซ็ตฐานข้อมูลเช็คซัม"
 MSG[quiet_notice]="การสำรองข้อมูลทำงานในพื้นหลัง ติดตามความคืบหน้ากับ"
 
-# ───── Dependencies and session ────────────────────────
+# ───── Dependencies and session ───────────────────────────
 MSG[fail_dep_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
 MSG[info_deps_ok]="การพึ่งพาทั้งหมดครบถ้วน"
 MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์…"
@@ -42,11 +42,11 @@ MSG[info_login_instruction]="กรุณาเรียกใช้"
 MSG[info_login_success]="เข้าสู่ระบบสำเร็จ"
 MSG[fail_login_failed]="การตรวจสอบสิทธิ์ล้มเหลว"
 
-# ───── Remote directory handling ───────────────────────
+# ───── Remote directory handling ──────────────────────────
 MSG[info_dry_create_folder]="จะสร้างโฟลเดอร์"
 MSG[fail_remote_create]="ไม่สามารถสร้างโฟลเดอร์ระยะไกลได้"
 
-# ───── Database build and load ─────────────────────────
+# ───── Database build and load ────────────────────────────
 MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง…"
 MSG[warn_skip_missing_dir]="ข้ามไดเรกทอรีที่หายไป"
 MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
@@ -57,25 +57,25 @@ MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูล�
 MSG[opt_checksum]="บังคับตรวจสอบเช็คซัมแบบสมบูรณ์"
 MSG[info_lookup_build]="สร้างตารางค้นหาจากฐานข้อมูลก่อนหน้า…"
 
-# ───── Upload phase ────────────────────────────────────
+# ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า…"
 MSG[info_no_local_files]="ไม่มีไฟล์ในเครื่องที่จะประมวลผล"
 MSG[info_uploaded]="ประมวลผลแล้ว"
 
-# ───── Delete phase ────────────────────────────────────
+# ───── Delete phase ───────────────────────────────────────
 MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง…"
 MSG[info_no_orphans]="ไม่มีไฟล์ที่ถูกละเลยที่จะลบ"
 MSG[mode_verb_trash]="ย้ายไปถังขยะ (กู้คืนได้)"
 MSG[mode_verb_delete]="ลบอย่างถาวร"
 
-# ───── Lock file management ────────────────────────────
+# ───── Lock file management ───────────────────────────────
 MSG[warn_lock_stale]="กำลังนำไฟล์ล็อคเก่าออก…"
 
-# ───── Terminal resize (graceful degradation) ──────────
+# ───── Terminal resize (graceful degradation) ─────────────
 MSG[warn_resize_disabled]="เทอร์มินัลปรับขนาด — ปิดใช้งานการแสดงความคืบหน้า"
 MSG[warn_resize_continuing]="การสำรองข้อมูลดำเนินต่อไปในโหมดเงียบ ติดตามความคืบหน้าด้วย"
 
-# ───── Logging ─────────────────────────────────────────
+# ───── Logging ────────────────────────────────────────────
 MSG[info_no_log_found]="ไม่พบบันทึกใน"
 MSG[info_log_first_run]="ไฟล์บันทึกจะถูกสร้างขึ้นในการรันการสำรองข้อมูลครั้งแรก"
 MSG[info_log_opening]="บันทึกการเปิด"
@@ -83,7 +83,7 @@ MSG[info_log_archive_opening]="กำลังเปิดบันทึกท�
 MSG[info_log_follow_hint]="กด Ctrl+C เพื่อขัดจังหวะการติดตาม กด Q เพื่อออก"
 MSG[warn_archive_failed]="ไม่สามารถเก็บถาวรบันทึกการรันได้ ปล่อยให้ไฟล์ธรรมดาอยู่กับที่"
 
-# ───── Cron management ─────────────────────────────────
+# ───── Cron management ────────────────────────────────────
 MSG[cron_manager]="ผู้จัดการครอนจ็อบ"
 MSG[cron_scheduled]="กำหนดเวลาครอนจ๊อบสำเร็จแล้ว"
 MSG[cron_already]="ครอนจ๊อบกำหนดไว้แล้วสำหรับ"
@@ -92,10 +92,10 @@ MSG[cron_none_found]="ไม่พบครอนจ๊อบสำหรับ"
 MSG[cron_existing]="รายการที่มีอยู่"
 MSG[cron_logs_written]="บันทึกถูกเขียนไปที่"
 
-# ───── Unknown options ─────────────────────────────────
+# ───── Unknown options ────────────────────────────────────
 MSG[warn_unknown_option]="ตัวเลือกที่ไม่รู้จัก"
 
-# ───── Version display (also used by show_version) ─────
+# ───── Version display (also used by show_version) ────────
 PAD_VERSION_WIDTH="14"  # Inflate padding to align with longest string
 MSG[info_version]="เวอร์ชันสคริปต์"
 MSG[info_build_date]="วันที่สร้างสคริปต์"
@@ -103,7 +103,7 @@ MSG[info_path]="เส้นทางสคริปต์"
 MSG[info_cli_version]="กำลังโหลดข้อมูล Proton Drive CLI…"
 MSG[info_cli_not_installed]="ไม่ได้ติดตั้ง Proton Drive CLI"
 
-# ───── Print Summary ───────────────────────────────────
+# ───── Print Summary ──────────────────────────────────────
 PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string
 MSG[sum_uploaded]="อัปโหลดแล้ว (ใหม่หรือมีการเปลี่ยนแปลง)"
 MSG[sum_skipped]="ข้ามไป (ไม่เปลี่ยนแปลง)"
@@ -112,7 +112,7 @@ MSG[sum_warnings]="ออกคำเตือนแล้ว"
 MSG[sum_completed_ok]="การสำรองข้อมูลเสร็จสมบูรณ์"
 MSG[sum_completed_errors]="การสำรองข้อมูลเสร็จสมบูรณ์โดยมีข้อผิดพลาด"
 
-# ───── Man-page Style Help ─────────────────────────────
+# ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
 ชื่อ
     Proton Drive Backup
@@ -174,7 +174,7 @@ EOF
 MSG[help_close]="ปิดความช่วยเหลือแล้ว"
 MSG[help_open]="กำลังเปิดความช่วยเหลือ…"
 
-# ───── Interactive menu ────────────────────────────────
+# ───── Interactive menu ───────────────────────────────────
 PAD_STATUS_WIDTH="18"   # adjust to language
 PAD_OPTION_WIDTH="12"   # adjust to language
 PAD_MENU_WIDTH="14"     # adjust to language
@@ -197,7 +197,7 @@ MSG[opt_unschedule]="ลบครอนจ๊อบออก"
 MSG[opt_verbose]="เรียกใช้การสำรองข้อมูลพร้อมตัวบ่งชี้ความคืบหน้า"
 MSG[opt_version]="แสดงข้อมูลเวอร์ชัน"
 
-# ───── Config validation constants ─────────────────────
+# ───── Config validation constants ────────────────────────
 MSG[fail_val_delete]="trash หรือ delete"
 MSG[fail_val_conflict]="replace หรือ skip"
 MSG[fail_val_cron_positive]="จำนวนเต็มบวก"
@@ -209,10 +209,10 @@ MSG[fail_config_missing]="ไม่พบไฟล์การตั้งค่
 MSG[fail_config_hint]="คัดลอกไฟล์ตั้งค่าตัวอย่างที่ %s แล้วปรับแก้ให้เหมาะสม"
 MSG[fail_config_syntax]="พบข้อผิดพลาดไวยากรณ์ในไฟล์กำหนดค่า: %s"
 
-# ───── Composite templates (printf, %s placeholders) ───
+# ───── Composite templates (printf, %s placeholders) ──────
 MSG[tmpl_db_built]="ฐานข้อมูลที่สร้าง: %s ไฟล์ รวม %s"
 MSG[tmpl_prev_db_loaded]="โหลดฐานข้อมูลก่อนหน้า (%s รายการ) เพื่อการตรวจจับการเปลี่ยนแปลง"
-MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไปแล้ว"
+MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไปแล้ว, %s"
 MSG[tmpl_delete_phase]="ลบเฟส %s %s"
 MSG[tmpl_lock_running]="อินสแตนซ์อื่นกำลังทำงานอยู่ (PID: %s)"
 MSG[tmpl_cron_interval]="การสำรองข้อมูลจะทำงานทุกๆ %s นาทีในโหมดเงียบ"

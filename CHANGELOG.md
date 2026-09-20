@@ -5,11 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.1.0] - 2026-09-15
+## [1.1.0] - 2026-09-20
 ### Added
-- Fast-path metadata check: reuse MD5 when file size and mtime unchanged
+- Fast-path metadata check: size+mtime match reuses stored MD5 (no re-hash)
 - New option: --checksum forces full hash (bypasses fast path)
-- New config: CHECK_UPDATES gates optional network checks (privacy-first)
+- Progress display: per-phase ETA, stable right edge (normalized 20-column tail)
+### Changed
+- Database build collects entries as TSV and finalizes in a single jq
+  call (eliminates one process spawn per file)
+- Schema: entries now carry numeric mtime_epoch alongside ISO mtime
+- Consolidated upload phase summary (one line, human-readable size)
+### Fixed
+- Timezone offset in stored mtimes invalidated the fast path (date
+  conversion without -u); mtime is now generated UTC-side by jq
 
 ## [1.0.0] - 2026-09-09
 

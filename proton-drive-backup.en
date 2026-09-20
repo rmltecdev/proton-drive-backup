@@ -1,4 +1,4 @@
-# ───────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 # proton-drive-backup — English localization
 #
 # Place in same directory as the proton-drive-backup script.
@@ -8,10 +8,10 @@
 #
 # Copyright (c) 2026 RML Tec Dev
 # (not affiliated with Proton AG)
-# ───────────────────────────────────────────────────────
+# ──────────────────────────────────────────────────────────
 
-# ───── Status labels (indicator words) ─────────────────
-MSG[status_preparing]="Preparing data..."
+# ───── Status labels (indicator words) ────────────────────
+MSG[status_preparing]="Analyzing data..."
 MSG[label_scan]="Scanning"
 MSG[label_load]="Loading"
 MSG[label_process]="Processing"
@@ -22,8 +22,8 @@ MSG[info_eta_calculating_prefix]="ETA"
 MSG[info_eta_calculating]="calculating..."  # max. 20 fixed-width characters to avoid truncating value
 MSG[info_eta_completed]="...completed."     # max. 20 fixed-width characters to avoid truncating value
 
-# ───── Initialization and configuration ────────────────
-PAD_CONFIG_WIDTH="24"
+# ───── Initialization and configuration ───────────────────
+PAD_CONFIG_WIDTH="26"
 MSG[info_config_header]="Backup Configuration:"
 MSG[info_conflict_strategy]="Conflict strategy"
 MSG[info_delete_mode]="Delete mode"
@@ -31,7 +31,7 @@ MSG[info_dry_run]="Dry run"
 MSG[info_reset_db]="Reset checksum database"
 MSG[quiet_notice]="Backup running in background. Follow progress with:"
 
-# ───── Dependencies and session ────────────────────────
+# ───── Dependencies and session ───────────────────────────
 MSG[fail_dep_missing]="Required dependencies not found:"
 MSG[info_deps_ok]="All dependencies satisfied."
 MSG[info_session_check]="Checking authentication session..."
@@ -42,11 +42,11 @@ MSG[info_login_instruction]="Please run: "
 MSG[info_login_success]="Login successful."
 MSG[fail_login_failed]="Authentication failed."
 
-# ───── Remote directory handling ───────────────────────
+# ───── Remote directory handling ──────────────────────────
 MSG[info_dry_create_folder]="Would create folder:"
 MSG[fail_remote_create]="Cannot create remote folder:"
 
-# ───── Database build and load ─────────────────────────
+# ───── Database build and load ────────────────────────────
 MSG[info_building_db]="Building local checksum database..."
 MSG[warn_skip_missing_dir]="Skipping missing directory:"
 MSG[warn_file_unreadable]="Cannot read file:"
@@ -57,25 +57,25 @@ MSG[warn_rebuild_db]="Rebuilding checksum database..."
 MSG[opt_checksum]="Force full checksum verification"
 MSG[info_lookup_build]="Building lookup table from previous database..."
 
-# ───── Upload phase ────────────────────────────────────
+# ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="Comparing local files against previous backup state..."
 MSG[info_no_local_files]="No local files to process."
 MSG[info_uploaded]="Processed:"
 
-# ───── Delete phase ────────────────────────────────────
+# ───── Delete phase ───────────────────────────────────────
 MSG[info_compare_delete]="Checking for locally deleted files..."
 MSG[info_no_orphans]="No orphaned files to delete."
 MSG[mode_verb_trash]="Recoverably trashed"
 MSG[mode_verb_delete]="Permanently deleted"
 
-# ───── Lock file management ────────────────────────────
+# ───── Lock file management ───────────────────────────────
 MSG[warn_lock_stale]="Removing stale lock file..."
 
-# ───── Terminal resize (graceful degradation) ──────────
+# ───── Terminal resize (graceful degradation) ─────────────
 MSG[warn_resize_disabled]="Terminal resized — progress display disabled."
 MSG[warn_resize_continuing]="Backup continues in quiet mode. Follow progress with:"
 
-# ───── Logging ─────────────────────────────────────────
+# ───── Logging ────────────────────────────────────────────
 MSG[info_no_log_found]="No log found in:"
 MSG[info_log_first_run]="The log file is created on first backup run."
 MSG[info_log_opening]="Opening log:"
@@ -83,7 +83,7 @@ MSG[info_log_archive_opening]="Opening archived log from:"
 MSG[info_log_follow_hint]="Press Ctrl+C to interrupt following, Q to quit."
 MSG[warn_archive_failed]="Could not archive run logs; leaving plain files in place."
 
-# ───── Cron management ─────────────────────────────────
+# ───── Cron management ────────────────────────────────────
 MSG[cron_manager]="Cronjob Manager"
 MSG[cron_scheduled]="Cronjob scheduled successfully:"
 MSG[cron_already]="Cronjob already scheduled for:"
@@ -92,10 +92,10 @@ MSG[cron_none_found]="No cronjob found for:"
 MSG[cron_existing]="Existing entry:"
 MSG[cron_logs_written]="Logs are written to:"
 
-# ───── Unknown options ─────────────────────────────────
+# ───── Unknown options ────────────────────────────────────
 MSG[warn_unknown_option]="Unknown option:"
 
-# ───── Version display (also used by show_version) ─────
+# ───── Version display (also used by show_version) ────────
 PAD_VERSION_WIDTH="18"  # Inflate padding to align with longest string
 MSG[info_version]="Script Version"
 MSG[info_build_date]="Script Build Date"
@@ -103,7 +103,7 @@ MSG[info_path]="Script path"
 MSG[info_cli_version]="Loading Proton Drive CLI Information..."
 MSG[info_cli_not_installed]="Proton Drive CLI not installed."
 
-# ───── Print Summary ───────────────────────────────────
+# ───── Print Summary ──────────────────────────────────────
 PAD_SUMMARY_WIDTH="26"  # Inflate padding to align with longest string
 MSG[sum_uploaded]="Uploaded (new or changed)"
 MSG[sum_skipped]="Skipped (unchanged)"
@@ -112,7 +112,7 @@ MSG[sum_warnings]="Warnings issued"
 MSG[sum_completed_ok]="Backup completed successfully"
 MSG[sum_completed_errors]="Backup completed with errors"
 
-# ───── Man-page Style Help ─────────────────────────────
+# ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
 NAME
     Proton Drive Backup
@@ -178,7 +178,7 @@ EOF
 MSG[help_close]="Help closed."
 MSG[help_open]="Opening help..."
 
-# ───── Interactive menu ────────────────────────────────
+# ───── Interactive menu ───────────────────────────────────
 PAD_STATUS_WIDTH="18"   # adjust to language
 PAD_OPTION_WIDTH="13"   # adjust to language
 PAD_MENU_WIDTH="14"     # adjust to language
@@ -201,7 +201,7 @@ MSG[opt_unschedule]="Remove the cronjob"
 MSG[opt_verbose]="Run backup with progress indicator"
 MSG[opt_version]="Show version information"
 
-# ── Config validation ──
+# ── Config validation ─────────────────────────────────────
 MSG[fail_val_delete]="trash or delete"
 MSG[fail_val_conflict]="replace or skip"
 MSG[fail_val_cron_positive]="a positive integer"
@@ -213,10 +213,10 @@ MSG[fail_config_missing]="Configuration file not found:"
 MSG[fail_config_hint]="Kopiere die Beispielkonfiguration unter %s und passe sie an."
 MSG[fail_config_syntax]="Syntax error in configuration file: %s"
 
-# ───── Composite templates (printf, %s placeholders) ───
+# ───── Composite templates (printf, %s placeholders) ──────
 MSG[tmpl_db_built]="Database built: %s files, %s total."
 MSG[tmpl_prev_db_loaded]="Loaded previous database (%s entries) for change detection."
-MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped."
+MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped, %s."
 MSG[tmpl_delete_phase]="Delete phase: %s %s."
 MSG[tmpl_lock_running]="Another instance is running (PID: %s)."
 MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."

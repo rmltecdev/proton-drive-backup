@@ -15,8 +15,8 @@
 [Understanding `--reset-db` Behavior](#understanding-reset-db-behavior)  
 [Dry-Run Mode Limitations](#dry-run-mode-limitations)  
 [Technical Decisions](#technical-decisions)
-[Who is liable for data loss?](#who-is-liable)  
-[Can I modify the script?](#an-I-modify-the-script)  
+[Who is liable for data loss?](#who-is-liable-for-data-loss)  
+[Can I modify the script?](#can-I-modify-the-script)  
 [Legal and Modification](#legal-and-modification)  
 
 ## General
@@ -51,7 +51,7 @@ The script validates its entire configuration contract before any mode runs — 
 
 ### Can I back up my full 2 TB storage?
 
-Be honest with yourself about what this tool is: a curator's backup for selected data, not a terabyte vault. Every run re-hashes every configured file locally (MD5) to determine deltas. A very large data set therefore means a long scan on every run, and Proton's fair use policy applies on the remote side as well.  
+Be honest with yourself about what this tool is: a curator's backup for selected data, not a terabyte vault. Each run compares file size and mtime against the local database first; only new or changed files are hashed (MD5). Unchanged files are recognized by metadata alone, keeping scans proportional to disk reads, not content volume. A very large data set therefore means a long scan on every run, and Proton's fair use policy applies on the remote side as well.  
 
 Proton's official guidance for the Drive CLI: "To stay within limits, only upload or download what has actually changed — don't reupload the same files repeatedly or rewrite entire folders." This tool implements exactly that by design: only new or changed files are uploaded; unchanged files are skipped entirely.  
 
@@ -59,7 +59,7 @@ If your data set grows into terabytes, consider splitting: curated documents via
 
 ### My first run is slow — is that normal?
 
-Yes. The first run builds the checksum database, which reads and hashes every configured file once. Subsequent runs are typically much faster, but still scale with the total number of files (a full hash pass per run — see previous question).  
+Yes. The first run builds the checksum database, which reads and hashes every configured file once. subsequent runs perform a metadata-only pass (one stat per file) plus hashing of changed files only.  
 
 ## Localization and Display
 
@@ -288,6 +288,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-09-13*
+*Last updated: 2026-09-20*
 *Author: RML Tec Dev*
 
