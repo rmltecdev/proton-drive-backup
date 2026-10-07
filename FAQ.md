@@ -47,6 +47,14 @@ The official Proton Drive CLI does not offer recursive folder deletion of empty 
 
 The script validates its entire configuration contract before any mode runs — a partially working script that fails mid-operation is worse than one that refuses to start. Fix the reported config value (see the example config), then all modes become available at once.  
 
+## Network and Connectivity
+
+### Why does the update check sometimes fail silently?
+
+The GitHub Releases API is unreachable approximately 3% of the time in my environment (31 failures over a multi-day run). No warning appears on the console; the log contains `Update check: no release metadata received.` This is intentional design: the script treats network unreliability as a transient condition, not a fatal error. The backup continues unaffected; the version check simply yields no result for that run. Future runs may succeed where earlier ones failed.  
+
+**Should I report this as a bug?** Only if failures persist beyond several days despite stable internet connectivity. Occasional timeouts are expected behavior for external APIs.  
+
 ## Sizing and Fair Use
 
 ### Can I back up my full 2 TB storage?
@@ -288,6 +296,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-09-20*
+*Last updated: 2026-10-07*
 *Author: RML Tec Dev*
 

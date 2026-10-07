@@ -23,6 +23,7 @@ coverage/
 # Temp files
 *.tmp
 *.temp
+*.retry
 
 # User files
 test-report.txt

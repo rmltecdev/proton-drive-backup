@@ -1,32 +1,34 @@
 # Proton Drive Backup — Read Me
 
-```bash
+```card
    ≡ Proton Drive Backup ≡
  
-   ● Info All dependencies satisfied.
-   ● Info Checking authentication session...
-   ● Success Session is valid.
-   ● Info Backup Configuration:
-          - Conflict strategy        replace
-          - Delete mode              trash
-          - Dry run                  false
-          - Reset checksum database  false
-   ● Info Scan /home/martin/Documents
-   ● Info Scan /home/martin/Music
-   ● Info Scan /home/martin/Pictures
-   ● Info Scan /home/martin/Projects
-   ● Info Scan /home/martin/Templates
-   ● Info Scan /home/martin/Videos
-   ● Info Database built: 117640 files, 309GiB total.
-   ● Info Comparing local files against previous backup state...
+   ● All dependencies satisfied.
+   ● Checking authentication session...
+   ● Session is valid.
+   ● Backup Configuration
+     ├ Conflict strategy        replace
+     ├ Delete mode              trash
+     ├ Dry run                  true
+     ╰ Reset checksum database  false
+  ● Building lookup table from previous database...
+  ● Building local checksum database:
+    ▶ Scanning /home/martin/Documents...
+    ▶ Scanning /home/martin/Music...
+    ▶ Scanning /home/martin/Pictures...
+    ▶ Scanning /home/martin/Projects...
+    ▶ Scanning /home/martin/Templates...
+    ▶ Scanning /home/martin/Videos...
+  ● Database built: 11764 files, 309GiB total.
+  ● Comparing local files against previous backup state...
  
- 
-   ● Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░░  12% ETA 2026-09-20 18:30
+  ▶ Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░  12% ETA 2026-10-20 18:30
 ```
 
 #### Table of Contents
 * [Purpose](#purpose)  
 * [Features](#features)  
+* [Philosophy](#philosophy)
 * [Requirements](#requirements)  
 * [Installation](#installation)  
 * [Configuration](#configuration)  
@@ -49,6 +51,12 @@ One-way backup tool that mirrors local directories to Proton Drive using the off
 > RML Tec Dev is not affiliated with, endorsed or supported by Proton AG.
 > "Proton Drive" is a trademark of Proton AG. Proton AG is not responsible for this tool's functionality or maintenance.
 
+## Philosophy
+
+In traditional Japanese aesthetics, the *wabi-sabi* (侘び寂び) concept centers on the acceptance of transience and imperfection. Prevalent in many forms of Japanese art, it describes beauty as "imperfect, impermanent, and incomplete."
+
+Our design philosophy embraces this principle: network instability, mount failures, and transient errors are not fought but accepted. To ensure resilience, we implemented **retry queues** for graceful handling of upload failures, **commit points** that prevent corrupted baselines, and **silent update checks** that fail without disrupting backup runs. The result is a tool that works reliably even when the world around it does not.
+
 ## Features
 
 * One-way synchronization: local system is the single source of truth — this tool never deletes, moves, or modifies local files  
@@ -65,7 +73,7 @@ One-way backup tool that mirrors local directories to Proton Drive using the off
 
 * An authenticated Proton Drive account (login handled interactively on first run)  
 * `proton-drive` CLI v0.4.6 or higher (https://proton.me/drive/cli)  
-* `jq`, `md5sum`, `tar`, GNU `find`  
+* `jq`, `md5sum`, `tar`, GNU `find`, `curl`  
 * bash 4.2 or higher   
 
 ## Installation
@@ -126,7 +134,7 @@ Invoked without options, the tool shows a status menu.
 | `--log`        | Open and follow the runtime log                     |
 | `--quiet`      | Minimal output for cron jobs (errors + summary)     |
 | `--reset-db`   | Discard and rebuild the checksum database           |
-| `--schedule`   | Install cron job (interval from config)             |
+| `--schedule`   | Install cron job. Interval from config; default: daily 1440-minute intervall; 300-minute interval suitable for high-frequency setups; weekly 10080-minute intervall recommended for multi-TiB datasets. |
 | `--unschedule` | Remove the cron job                                 |
 | `--verbose`    | Progress indicators during processing               |
 | `--version`    | Version and CLI information                         |
@@ -192,5 +200,5 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
 ### Version
 
-**Version:** v1.1.0
-Build Date:  2026-09-20
+Version: v1.2.0  
+Build Date: 2026-10-07  

@@ -11,20 +11,20 @@
 # ──────────────────────────────────────────────────────────
 
 # ───── Status labels (indicator words) ────────────────────
-MSG[status_preparing]="Analyzing data..."
-MSG[label_scan]="Scanning"
-MSG[label_load]="Loading"
-MSG[label_process]="Processing"
-MSG[label_delete]="Deleting"
-MSG[label_load]="Loading"
-MSG[label_files]="files"
 MSG[info_eta_calculating_prefix]="ETA"
 MSG[info_eta_calculating]="calculating..."  # max. 20 fixed-width characters to avoid truncating value
 MSG[info_eta_completed]="...completed."     # max. 20 fixed-width characters to avoid truncating value
+MSG[label_delete]="Deleting"
+MSG[label_files]="files"
+MSG[label_load]="Loading"
+MSG[label_process]="Processing"
+MSG[label_retry]="Retrying..."
+MSG[label_scan]="Scanning"
+MSG[status_preparing]="Analyzing data..."
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="26"
-MSG[info_config_header]="Backup Configuration:"
+PAD_CONFIG_WIDTH="28"   # Inflate padding to align with longest string; adjust to language
+MSG[info_config_header]="Backup Configuration"
 MSG[info_conflict_strategy]="Conflict strategy"
 MSG[info_delete_mode]="Delete mode"
 MSG[info_dry_run]="Dry run"
@@ -47,7 +47,7 @@ MSG[info_dry_create_folder]="Would create folder:"
 MSG[fail_remote_create]="Cannot create remote folder:"
 
 # ───── Database build and load ────────────────────────────
-MSG[info_building_db]="Building local checksum database..."
+MSG[info_building_db]="Building local checksum database"
 MSG[warn_skip_missing_dir]="Skipping missing directory:"
 MSG[warn_file_unreadable]="Cannot read file:"
 MSG[warn_db_empty]="No files found in source directories; check configuration in:"
@@ -59,6 +59,7 @@ MSG[info_lookup_build]="Building lookup table from previous database..."
 
 # ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="Comparing local files against previous backup state..."
+MSG[info_compare_upload_new]="Uploading all files (no previous backup state found)..."
 MSG[info_no_local_files]="No local files to process."
 MSG[info_uploaded]="Processed:"
 
@@ -95,22 +96,27 @@ MSG[cron_logs_written]="Logs are written to:"
 # ───── Unknown options ────────────────────────────────────
 MSG[warn_unknown_option]="Unknown option:"
 
-# ───── Version display (also used by show_version) ────────
-PAD_VERSION_WIDTH="18"  # Inflate padding to align with longest string
+# ───── Version display and update availability ────────────
+PAD_VERSION_WIDTH="18"  # Inflate padding to align with longest string; adjust to language
 MSG[info_version]="Script Version"
 MSG[info_build_date]="Script Build Date"
 MSG[info_path]="Script path"
 MSG[info_cli_version]="Loading Proton Drive CLI Information..."
 MSG[info_cli_not_installed]="Proton Drive CLI not installed."
+MSG[label_update_available]="Update available"
+MSG[info_update_latest]="You are running the latest release."
+MSG[help_release_url]="https://github.com/rmltecdev/proton-drive-backup/releases"
 
 # ───── Print Summary ──────────────────────────────────────
-PAD_SUMMARY_WIDTH="26"  # Inflate padding to align with longest string
+PAD_SUMMARY_WIDTH="26"  # Inflate padding to align with longest string; adjust to language
 MSG[sum_uploaded]="Uploaded (new or changed)"
 MSG[sum_skipped]="Skipped (unchanged)"
 MSG[sum_errors]="Errors encountered"
 MSG[sum_warnings]="Warnings issued"
 MSG[sum_completed_ok]="Backup completed successfully"
 MSG[sum_completed_errors]="Backup completed with errors"
+MSG[sum_retried]="Retried successfully"
+MSG[sum_retry_pending]="Pending in retry queue"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
@@ -129,16 +135,18 @@ DESCRIPTION
     of Proton AG.
 
 REQUIREMENTS
-    - proton-drive CLI v0.4.6 or higher
+    - proton-drive CLI v0.8.0 or higher
     - jq (JSON processor)
     - md5sum (checksum utility)
     - bash version 4.2 or higher
     - tar
+    - curl
 
 USAGE
     %s [OPTIONS]
 
     OPTIONS
+        --checksum    Force full checksum verification.
         --dry-run     Display changes, no action taken.
         --help        Show this help and exit.
         --log         Open and follow runtime log; quit with Ctrl+C + Q.
@@ -179,9 +187,9 @@ MSG[help_close]="Help closed."
 MSG[help_open]="Opening help..."
 
 # ───── Interactive menu ───────────────────────────────────
-PAD_STATUS_WIDTH="18"   # adjust to language
-PAD_OPTION_WIDTH="13"   # adjust to language
-PAD_MENU_WIDTH="14"     # adjust to language
+PAD_STATUS_WIDTH="18"   # Inflate padding to align with longest string; adjust to language
+PAD_MENU_WIDTH="14"     # Inflate padding to align with longest string; adjust to language
+PAD_OPTION_WIDTH="13"   # fixed — option strings identical ASCII across locales
 MSG[menu_status]="Status"
 MSG[menu_cron_label]="Cronjob scheduled"
 MSG[menu_db_label]="Database entries"
@@ -201,7 +209,10 @@ MSG[opt_unschedule]="Remove the cronjob"
 MSG[opt_verbose]="Run backup with progress indicator"
 MSG[opt_version]="Show version information"
 
-# ── Config validation ─────────────────────────────────────
+# ───── Config validation ──────────────────────────────────
+MSG[fail_config_missing]="Configuration file not found:"
+MSG[fail_config_hint]="Copy the example configuration at %s and adjust it."
+MSG[fail_config_syntax]="Syntax error in configuration file: %s"
 MSG[fail_val_delete]="trash or delete"
 MSG[fail_val_conflict]="replace or skip"
 MSG[fail_val_cron_positive]="a positive integer"
@@ -209,9 +220,8 @@ MSG[fail_val_cron_divisible]="1-60, or a multiple of 60"
 MSG[fail_val_source_dirs]="at least one source directory"
 MSG[fail_val_keep_log_runs]="a whole number of 1 or greater"
 MSG[fail_val_source_base]="an absolute path starting with /"
-MSG[fail_config_missing]="Configuration file not found:"
-MSG[fail_config_hint]="Kopiere die Beispielkonfiguration unter %s und passe sie an."
-MSG[fail_config_syntax]="Syntax error in configuration file: %s"
+MSG[fail_val_retry_attempts]="1-10"
+MSG[fail_val_retry_backoff]="a positive integer"
 
 # ───── Composite templates (printf, %s placeholders) ──────
 MSG[tmpl_db_built]="Database built: %s files, %s total."
@@ -223,3 +233,5 @@ MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."
 MSG[tmpl_usage_hint]="Run '%s --help' for available options."
 MSG[tmpl_menu_invoke]="Invoke %s with one of these options:"
 MSG[tmpl_fail_invalid_value]="Invalid %s: '%s' (allowed: %s)."
+MSG[tmpl_update_available]="  %s v%s → v%s; download from:\n"
+MSG[tmpl_release_url]="  %s %s\n"

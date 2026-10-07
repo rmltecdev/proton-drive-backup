@@ -28,17 +28,19 @@ by `test.sh` wherever technically checkable.
 
 | Variable           | Consumer               | Values (.en / .de / .th)       |
 |--------------------|------------------------|--------------------------------|
-| PAD_CONFIG_WIDTH   | backup config block    | 24 / 33 / 18                   |
+| PAD_CONFIG_WIDTH   | backup config block    | 26 / 35 / 19                   |
 | PAD_VERSION_WIDTH  | `show_version()`       | 18 / 23 / 14                   |
 | PAD_SUMMARY_WIDTH  | `print_summary()`      | 26 / 32 / 32                   |
-| PAD_STATUS_WIDTH   | menu status section    | 18 / 22 / 18                   |
+| PAD_STATUS_WIDTH   | menu status section    | 18 / 21 / 18                   |
 | PAD_OPTION_WIDTH   | menu options section   | 13 (fixed — option strings are identical ASCII across locales) |
 | PAD_MENU_WIDTH     | menu paths section     | 14 / 21 / 14                   |
+| fail_val_retry_attempts | Constant | — | Reason: RETRY_MAX_ATTEMPTS not 1-10 |
+| fail_val_retry_backoff  | Constant | — | Reason: RETRY_BACKOFF_BASE not a positive integer |
 
 ## Config validation
 
 | Key | Type | Placeholders | Notes |
-|---|---|---|---|
+|---  |---   |---           |---    |
 | tmpl_fail_invalid_value | Template | 3× %s | Generic wrapper: variable name, invalid value, reason |
 | fail_val_delete | Constant | — | Reason: DELETE_MODE not trash/delete |
 | fail_val_conflict | Constant | — | Reason: UPLOAD_CONFLICT_STRATEGY not replace/skip |
@@ -51,6 +53,15 @@ by `test.sh` wherever technically checkable.
 | fail_config_hint | Template | 1× %s | Runtime-derived .cfg.example path, printed with fail_config_missing |
 | fail_config_syntax | Template | 1× %s | bash -n parser output header; legacy name kept — documented exception to rule 1 |
 
+## Help text
+
+| Key                   | Type      | Placeholders              | Notes |
+|---                    |---        |---                        |---    |
+| info_update_available | Composite | %s (current), %s (latest) |       |
+| info_update_latest    | Constant  | —                         |       |
+| info_update_unknown   | Constant  | —                         |       |
+| help_release_url      | Constant  | URL                       |       |
+
 > **Constant keys** hold plain values without placeholders. They are
 > consumed as printf arguments by tmpl_fail_invalid_value (reason slot)
 > or echoed directly — locales must never contain literal % characters
@@ -62,6 +73,7 @@ by `test.sh` wherever technically checkable.
 ### Status and progress labels
 `status_preparing` — progress bar boot message
 `label_scan`, `label_load`, `label_process`, `label_delete`,
+`label_retry`
 `info_eta_calculating`
 
 ### Initialization and configuration
@@ -81,7 +93,8 @@ by `test.sh` wherever technically checkable.
 `warn_db_empty`, `info_no_db_found`, `info_lookup_build`,
 `warn_rebuild_db`, `label_scan`,
 `label_load`, `label_process`,
-`label_delete`
+`label_delete`,
+`label_retry`
 
 ### Upload phase
 `info_compare_upload`, `info_no_local_files`, `info_uploaded`
@@ -112,13 +125,18 @@ by `test.sh` wherever technically checkable.
 
 ### Version display and update check
 `info_version`, `info_build_date`, `info_path`, `info_cli_version`,
-`info_cli_not_installed`, `info_update_uptodate`  
-   Update-check messages are opt-in (CHECK_UPDATES, default false):
-   no network activity in --version mode unless enabled.
+`info_cli_not_installed`, `info_update_uptodate`,
+`info_update_latest`,
+`info_update_unknown`,
+`help_release_url`  
+Update-check messages are opt-in (CHECK_UPDATES, default "false"):
+no network activity in --version mode unless enabled.
 
 ### Print summary
 `sum_uploaded`, `sum_skipped`, `sum_errors`, `sum_warnings`,
+`sum_retried`, `sum_retry_pending`,
 `sum_completed_ok`, `sum_completed_errors`
+Retry rows render only when their counters are non-zero (healthy runs keep the v1.1.0 summary shape).
 
 ### Man-page style help
 `help_text` (heredoc, 5 positional `%s`: SCRIPT_NAME,
@@ -160,6 +178,5 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 1. Copy `proton-drive-backup.en` → `proton-drive-backup.<lang>`
 2. Translate all keys; measure column widths and set `PAD_*` values
 3. Preserve `tmpl_*` placeholder positions and counts exactly
-4. Verify with `LANG=<lang>_XX.UTF-8` — a generated locale is required
-   for correct glyph measurement (see FAQ)
+4. Verify with `LANG=<lang>_XX.UTF-8` — a generated locale is required for correct glyph measurement (see FAQ)
 5. `test.sh` discovers and validates the file automatically

@@ -11,19 +11,19 @@
 # ──────────────────────────────────────────────────────────
 
 # ───── Status labels (indicator words) ────────────────────
-MSG[status_preparing]="Analysiere Daten..."
-MSG[label_scan]="Scanne"
-MSG[label_load]="Lade"
-MSG[label_process]="Verarbeite"
-MSG[label_delete]="Lösche"
-MSG[label_load]="Lade"
-MSG[label_files]="Dateien"
 MSG[info_eta_calculating_prefix]="ETA"
 MSG[info_eta_calculating]="berechne..."     # max. 20 fixed-width characters to avoid truncating value
 MSG[info_eta_completed]="...vollständig."   # max. 20 fixed-width characters to avoid truncating value
+MSG[label_delete]="Lösche"
+MSG[label_files]="Dateien"
+MSG[label_load]="Lade"
+MSG[label_process]="Verarbeite"
+MSG[label_retry]="Wiederhole..."
+MSG[label_scan]="Scanne"
+MSG[status_preparing]="Analysiere Daten..."
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="35"
+PAD_CONFIG_WIDTH="35"   # Inflate padding to align with longest string; adjust to language
 MSG[info_config_header]="Backup Konfiguration:"
 MSG[info_conflict_strategy]="Konfliktstrategie"
 MSG[info_delete_mode]="Löschmodus"
@@ -47,7 +47,7 @@ MSG[info_dry_create_folder]="Würde Ordner erstellen:"
 MSG[fail_remote_create]="Remote-Ordner kann nicht erstellt werden:"
 
 # ───── Database build and load ────────────────────────────
-MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank..."
+MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank"
 MSG[warn_skip_missing_dir]="Überspringe fehlendes Verzeichnis:"
 MSG[warn_file_unreadable]="Datei kann nicht gelesen werden:"
 MSG[warn_db_empty]="Keine Dateien in Quellverzeichnissen gefunden; prüfen Sie die Konfiguration in:"
@@ -59,6 +59,7 @@ MSG[opt_checksum]="Vollständige Prüfsummenprüfung erzwingen"
 
 # ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="Vergleich lokaler Dateien mit vorherigem Sicherungsstand..."
+MSG[info_compare_upload_new]="Lade alle Dateien hoch (kein vorheriger Backup-Zustand vorhanden)..."
 MSG[info_no_local_files]="Keine lokalen Dateien zu verarbeiten."
 MSG[info_uploaded]="Verarbeitet:"
 
@@ -95,22 +96,27 @@ MSG[cron_logs_written]="Protokolle werden geschrieben in:"
 # ───── Unknown options ────────────────────────────────────
 MSG[warn_unknown_option]="Unbekannte Option:"
 
-# ───── Version display (also used by show_version) ────────
-PAD_VERSION_WIDTH="23"  # Inflate padding to align with longest string
+# ───── Version display and update availability ────────────
+PAD_VERSION_WIDTH="23"  # Inflate padding to align with longest string; adjust to language
 MSG[info_version]="Skriptversion"
 MSG[info_build_date]="Skripterstellungsdatum"
 MSG[info_path]="Skriptpfad"
 MSG[info_cli_version]="Lade CLI-Informationen..."
 MSG[info_cli_not_installed]="Proton Drive CLI nicht installiert."
+MSG[label_update_available]="Update verfügbar"
+MSG[info_update_latest]="Du nutzt die neueste Version."
+MSG[help_release_url]="https://github.com/rmltecdev/proton-drive-backup/releases"
 
 # ───── Print Summary ──────────────────────────────────────
-PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string
+PAD_SUMMARY_WIDTH="35"  # Inflate padding to align with longest string; adjust to language
 MSG[sum_uploaded]="Hochgeladen (neu oder geändert)"
 MSG[sum_skipped]="Übersprungen (unverändert)"
 MSG[sum_errors]="Fehler"
 MSG[sum_warnings]="Warnungen"
 MSG[sum_completed_ok]="Datensicherung vollständig"
 MSG[sum_completed_errors]="Datensicherung mit Fehlern"
+MSG[sum_retried]="Erfolgreich wiederholt"
+MSG[sum_retry_pending]="Offen in Wiederholungswarteschlange"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
@@ -130,28 +136,30 @@ BESCHREIBUNG
     ist eine Marke der Proton AG.
 
 REQUIREMENTS
-    - proton-drive CLI v0.4.6 oder höher
+    - proton-drive CLI v0.8.0 oder höher
     - jq (JSON-Verarbeitung)
     - md5sum (Prüfsummen-Dienstprogramm)
     - bash Version 4.2 oder höher
     - tar
+    - curl
 
 USAGE
     %s [OPTIONS]
 
     OPTIONS
-        --dry-run       Testlauf, es werden keine Änderungen durchgeführt.
-        --help          Diese Hilfe anzeigen und beenden.
-        --log           Laufzeitprotokoll öffnen und verfolgen; 
-                        mit Strg+C + Q beenden.
-        --quiet         Automatische Datensicherung (für Cronjobs).
-                        Konsolenausgabe: nur Fehler und Zusammenfassung.
-        --reset-db      Prüfsummendatenbank zurücksetzen und neu erstellen
-        --schedule      Zeitgesteuerte Ausführung der Datensicherung
-                        planen (alle %s Minuten).
-        --unschedule    Cronjob entfernen.
-        --verbose       Führe Datensicherung mit Fortschrittsanzeige aus.
-        --version       Versionsinformationen anzeigen.
+        --checksum    Vollständige Prüfsummenüberprüfung erzwingen.
+        --dry-run     Testlauf, es werden keine Änderungen durchgeführt.
+        --help        Diese Hilfe anzeigen und beenden.
+        --log         Laufzeitprotokoll öffnen und verfolgen; 
+                      mit Strg+C + Q beenden.
+        --quiet       Automatische Datensicherung (für Cronjobs).
+                      Konsolenausgabe: nur Fehler und Zusammenfassung.
+        --reset-db    Prüfsummendatenbank zurücksetzen und neu erstellen
+        --schedule    Zeitgesteuerte Ausführung der Datensicherung planen
+                      (alle %s Minuten).
+        --unschedule  Cronjob entfernen.
+        --verbose     Führe Datensicherung mit Fortschrittsanzeige aus.
+        --version     Versionsinformationen anzeigen.
 
 LOGGING
     Protokolldatei  %s
@@ -183,9 +191,9 @@ MSG[help_close]="Hilfe geschlossen."
 MSG[help_open]="Öffne Hilfe..."
 
 # ───── Interactive menu ───────────────────────────────────
-PAD_STATUS_WIDTH="22"   # adjust to language
-PAD_OPTION_WIDTH="13"   # adjust to language
-PAD_MENU_WIDTH="21"     # adjust to language
+PAD_STATUS_WIDTH="22"   # Inflate padding to align with longest string; adjust to language
+PAD_MENU_WIDTH="21"     # Inflate padding to align with longest string; adjust to language
+PAD_OPTION_WIDTH="13"   # fixed — option strings identical ASCII across locales
 MSG[menu_status]="Status"
 MSG[menu_cron_label]="Cronjob geplant"
 MSG[menu_db_label]="Datenbankeinträge"
@@ -205,7 +213,10 @@ MSG[opt_unschedule]="Cronjob entfernen"
 MSG[opt_verbose]="Führe Datensicherung mit Fortschrittsanzeige aus"
 MSG[opt_version]="Versionsinformationen anzeigen"
 
-# ── Config validation ─────────────────────────────────────
+# ───── Config validation ──────────────────────────────────
+MSG[fail_config_missing]="Konfigurationsdatei nicht gefunden:"
+MSG[fail_config_hint]="Kopieren Sie die Beispielkonfiguration unter %s und passen Sie sie an."
+MSG[fail_config_syntax]="Syntaxfehler in der Konfigurationsdatei: %s"
 MSG[fail_val_delete]="trash oder delete"
 MSG[fail_val_conflict]="replace oder skip"
 MSG[fail_val_cron_positive]="eine positive Ganzzahl"
@@ -213,9 +224,8 @@ MSG[fail_val_cron_divisible]="1-60 oder ein Vielfaches von 60"
 MSG[fail_val_source_dirs]="mindestens ein Quellverzeichnis"
 MSG[fail_val_keep_log_runs]="eine ganze Zahl von 1 oder größer"
 MSG[fail_val_source_base]="ein absoluter Pfad beginnend mit /"
-MSG[fail_config_missing]="Konfigurationsdatei nicht gefunden:"
-MSG[fail_config_hint]="Kopieren Sie die Beispielkonfiguration unter %s und passen Sie sie an."
-MSG[fail_config_syntax]="Syntaxfehler in der Konfigurationsdatei: %s"
+MSG[fail_val_retry_attempts]="1-10"
+MSG[fail_val_retry_backoff]="eine positive Ganzzahl"
 
 # ───── Composite templates (printf, %s placeholders) ──────
 MSG[tmpl_db_built]="Datenbank erstellt: %s Dateien, %s gesamt."
@@ -227,3 +237,5 @@ MSG[tmpl_cron_interval]="Datensicherung wird alle %s Minuten im stillen Modus au
 MSG[tmpl_usage_hint]="Führen Sie '%s --help' aus, um verfügbare Optionen anzuzeigen."
 MSG[tmpl_menu_invoke]="Rufen Sie %s mit einer dieser Optionen auf:"
 MSG[tmpl_fail_invalid_value]="Ungültiger Wert für %s: '%s' (erlaubt: %s)."
+MSG[tmpl_update_available]="  %s v%s → v%s; herunterladen von:\n"
+MSG[tmpl_release_url]="  %s %s\n"

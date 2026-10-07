@@ -48,6 +48,8 @@ section() {
     echo "── $1 ──"
 }
 
+
+
 # ═══ SECTION 1: File presence ════════════════════════════
 
 section "Required files"
@@ -59,6 +61,8 @@ done
 
 [[ -x "$MAIN_SCRIPT" ]] && print_pass "Script is executable" \
                        || print_fail "Script not executable (chmod +x)"
+
+
 
 # ═══ SECTION 2: Syntax check ══════════════════════════════
 
@@ -76,6 +80,8 @@ else
     print_fail "Localization file: invalid Bash"
 fi
 
+
+
 # ═══ SECTION 3: Version consistency ═══════════════════════
 
 section "Version metadata"
@@ -88,12 +94,12 @@ script_ver=$(grep -m1 -oP '^VERSION="\K[^"]+' "$MAIN_SCRIPT")
     && print_pass "No pre-release marker" \
     || print_fail "Version contains pre-release marker: $script_ver"
 
-readme_ver=$(grep -m1 -oP '^\*\*[Vv]ersion:\*\* ?\K\S+' "$README_FILE")
+readme_ver=$(grep -m1 -oP '^[Vv]ersion: \K\S+' "$README_FILE")
 if [[ -n "$readme_ver" ]]; then
     [[ "$readme_ver" == "v$script_ver" ]] && print_pass "README version matches" \
        || print_fail "README version mismatch: $readme_ver vs v$script_ver"
 else
-    print_warn "No version line found in README (pattern '**Version:**')"
+    print_fail "No version line found in README (pattern 'Version:')"
 fi
 
 changelog_ver=$(grep -m1 -oP '^## \[\K[^\]]+' "$CHANGELOG_FILE")
@@ -104,9 +110,13 @@ else
     print_fail "No '## [version]' heading in CHANGELOG"
 fi
 
-# ═══ SECTION 4: Build date sanity ═════════════════════════
+
+
+# ═══ SECTION 4: Build date sanity + cross-file consistency ═══
 
 section "Build date"
+
+# Main script
 
 build_date=$(grep -m1 -oP '^BUILD_DATE="\K[^"]+' "$MAIN_SCRIPT")
 today=$(date +%F)
@@ -121,12 +131,53 @@ else
     print_fail "BUILD_DATE missing or not ISO format (YYYY-MM-DD)"
 fi
 
+# ── Cross-file date consistency ──
+# The release date is a contract between three files, same as the
+# version number: script BUILD_DATE, CHANGELOG heading date, and
+# the README date must agree. A mismatch means one file was
+# forgotten during the release bump — the same class of drift the
+# version checks in Section 3 catch.
+
+# CHANGELOG: first "## [version] - YYYY-MM-DD" heading
+changelog_date=$(grep -m1 -oP '^## \[[^]]+\] - \K[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+                "$CHANGELOG_FILE")
+
+if [[ -n "$changelog_date" ]]; then
+    if [[ -n "$build_date" ]]; then
+        [[ "$changelog_date" == "$build_date" ]] \
+            && print_pass "CHANGELOG date matches script BUILD_DATE" \
+            || print_fail "Date mismatch: CHANGELOG $changelog_date vs BUILD_DATE $build_date"
+    else
+        print_fail "Cannot compare: BUILD_DATE missing in script"
+    fi
+else
+    print_fail "No '## [version] - date' heading found in CHANGELOG"
+fi
+
+# README: date line next to the version line
+readme_date=$(grep -m1 -oP '^[Bb]uild [Dd]ate: \K[0-9]{4}-[0-9]{2}-[0-9]{2}' \
+              "$README_FILE")
+
+if [[ -n "$readme_date" ]]; then
+    if [[ -n "$build_date" ]]; then
+        [[ "$readme_date" == "$build_date" ]] \
+            && print_pass "README date matches script BUILD_DATE" \
+            || print_fail "Date mismatch: README $readme_date vs BUILD_DATE $build_date"
+    else
+        print_fail "Cannot compare: BUILD_DATE missing in script"
+    fi
+else
+    print_fail "No date line found in README (pattern 'Date:') — cross-check skipped"
+fi
+
+
+
 # ═══ SECTION 5: Declared dependencies runnable ═══════════
 
 section "Dependencies (runtime environment)"
 
 # These are hard runtime dependencies declared in the script
-for dep in proton-drive jq md5sum tar; do
+for dep in proton-drive jq md5sum tar curl; do
     if command -v "$dep" &>/dev/null; then
         print_pass "Installed: $dep"
     else
@@ -141,6 +192,8 @@ else
     print_warn "numfmt not installed — sizes display raw (by design)"
 fi
 
+
+
 # ═══ SECTION 6: ShellCheck ════════════════════════════════
 
 section "ShellCheck"
@@ -154,6 +207,8 @@ if command -v shellcheck &>/dev/null; then
 else
     print_warn "ShellCheck not installed — skipped (mandatory before release)"
 fi
+
+
 
 # ═══ SECTION 7: Function definition guard ════════════════
 
@@ -178,6 +233,8 @@ for fn in acquire_lock release_lock progress_init progress_teardown \
         print_fail "Missing or nested definition: $fn()"
     fi
 done
+
+
 
 # ═══ SECTION 8: Localization contract (all locales) ══════
 
@@ -264,6 +321,8 @@ for loc_file in "${locale_files[@]}"; do
     [[ $corpse_bad -eq 0 ]] && print_pass "[$lang] No corpse keys"
 done
 
+
+
 # ═══ SECTION 9: Configuration example contract ═══════════
 
 section "Configuration example (.cfg.example)"
@@ -313,7 +372,77 @@ done < <(sed -n '/^SOURCE_DIRS=(/,/^)/p' "$CFG_EXAMPLE" \
          | grep -oP '"\K[^"]+' )
 [[ $xdg_bad -eq 0 ]] && print_pass "SOURCE_DIRS defaults follow XDG naming"
 
-# ═══ SECTION 10: Script hygiene ═══════════════════════════
+
+
+# ═══ SECTION 10: CLI options ↔ --help parity ═════════════
+
+section "CLI/help parity"
+
+# The option set is a contract between two places: what
+# parse_args() accepts in the main script and what the localized
+# help_text heredoc documents. The option NAMES are identical in
+# every locale by design — a localized flag spelling would be a
+# different program. Drift between either side is the classic
+# CLI bug: an implemented option nobody can discover, or a
+# documented option that silently does nothing.
+
+# Comments stripped before scanning: dead-code doc-drift in
+# commented-out cases must not satisfy the parity check.
+parse_body=$(sed -n '/^parse_args()/,/^}/p' "$MAIN_SCRIPT" | grep -v '^[[:space:]]*#')
+args_opts=$(grep -oP -- '--[a-z][a-z-]+' <<< "$parse_body" | sort -u)
+
+# Gate self-verification: the args side must yield options —
+# empty discovery is a FAIL condition, never a silent pass.
+if [[ -z "$args_opts" ]]; then
+    print_fail "No options discovered in parse_args() — extraction pattern broken?"
+fi
+
+if [[ -n "$args_opts" ]]; then
+    print_pass "Option discovery: $(wc -l <<< "$args_opts") options in parse_args()"
+fi
+
+for loc_file in "${locale_files[@]}"; do
+    lang="${loc_file##*.}"
+
+    # Extract the help_text heredoc BODY (between <<'EOF' and EOF)
+    help_body=$(sed -n "/help_text\]/,/^EOF$/p" "$loc_file" | head -n -1)
+
+    # Gate self-verification — the help side needs options too;
+    # a broken extraction or a missing heredoc must never
+    # masquerade as parity.
+    help_opts=$(grep -oP -- '--[a-z][a-z-]+' <<< "$help_body" | sort -u)
+    if [[ -z "$help_opts" ]]; then
+        print_fail "[$lang] No options discovered in help_text — extraction pattern broken?"
+        continue
+    fi
+
+    # comm needs two FILE operands — process substitution supplies
+    # them; here-strings would collide on stdin (the "missing
+    # operand" lesson).
+    only_in_args=$(comm -23 <(printf '%s\n' "$args_opts") <(printf '%s\n' "$help_opts"))
+    only_in_help=$(comm -13 <(printf '%s\n' "$args_opts") <(printf '%s\n' "$help_opts"))
+
+    parity_bad=0
+
+    while read -r opt; do
+        [[ "$opt" == "--" || -z "$opt" ]] && continue
+        print_fail "[$lang] Implemented but undocumented in --help: $opt"
+        parity_bad=1
+    done <<< "$only_in_args"
+
+    while read -r opt; do
+        [[ "$opt" == "--" || -z "$opt" ]] && continue
+        print_fail "[$lang] Documented in --help but not implemented: $opt"
+        parity_bad=1
+    done <<< "$only_in_help"
+
+    [[ $parity_bad -eq 0 ]] \
+        && print_pass "[$lang] parse_args() and --help option sets identical"
+done
+
+
+
+# ═══ SECTION 11: Script hygiene ═══════════════════════════
 
 section "Script hygiene"
 
@@ -342,14 +471,20 @@ grep -q "date -u '+%Y%m%d" "$MAIN_SCRIPT" \
     && print_pass "Archive stamps use UTC" \
     || print_warn "UTC archive stamping not confirmed — verify manually"
 
-# ═══ SECTION 11: Git commit message mood (uncommitted check) ═══
+
+
+# ═══ SECTION 12: Git commit message mood (uncommitted check) ═══
 
 section "Commit message"
 
 if [[ -x "$(command -v git)" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
-    last_msg=$(git log -1 --pretty=%s)
-    if [[ "$last_msg" =~ ^(Added|Fixed|Updated|Removed|Changed) ]] && [[ "$last_msg" != *. ]]; then
-        print_pass "Last commit message follows mood convention"
+    # Merge commits carry git-generated subject lines outside the
+    # mood convention — the last AUTHORED commit is the review target
+    last_msg=$(git log --author-date-order -1 --no-merges --pretty=%s)
+    if [[ -z "$last_msg" ]]; then
+        print_warn "No non-merge commit found"
+    elif [[ "$last_msg" =~ ^(Added|Fixed|Updated|Removed|Changed) ]] && [[ "$last_msg" != *. ]]; then
+        print_pass "Last authored commit follows mood convention"
     else
         print_warn "Commit message deviates: '$last_msg'"
     fi
@@ -357,24 +492,26 @@ else
     print_warn "Not a git repository — commit check skipped"
 fi
 
+
+
+
+
 # ═══ SUMMARY ══════════════════════════════════════════════
 
 echo ""
 echo "══ Smoke Test Summary ══"
-echo "  Passed:    $PASS_COUNT"
-echo "  Warnings:  $WARN_COUNT"
-echo "  Failures:  $FAIL_COUNT"
+echo "   Passed:    $PASS_COUNT"
+echo "   Warnings:  $WARN_COUNT"
+echo "   Failures:  $FAIL_COUNT"
+echo ""
 
 if [[ $FAIL_COUNT -gt 0 ]]; then
-    echo ""
-    echo "  ■ COMMIT BLOCKED — fix failures before pushing."
+    print_fail "COMMIT BLOCKED — fix failures before pushing.\n"
     exit 1
 elif [[ $WARN_COUNT -gt 0 ]]; then
-    echo ""
-    echo "  ▲ Safe to commit — review warnings above."
+    print_warn "Safe to commit — review warnings above.\n"
     exit 0
 else
-    echo ""
-    echo "  ● All checks passed."
+    print_pass "All checks passed. Safe to commit.\n"
     exit 0
 fi

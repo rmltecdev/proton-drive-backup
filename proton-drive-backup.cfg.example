@@ -19,6 +19,7 @@ SOURCE_BASE="$HOME"
 # Local source directories. Relative paths resolve against
 # SOURCE_BASE (= $HOME); absolute paths are used as-is.
 # Uncomment "Projects" if you track a developer or creator workspace.
+# Add more directories you would like to backup to Proton Drive.
 SOURCE_DIRS=(
     "Documents"
     "Music"
@@ -36,11 +37,30 @@ REMOTE_BASE_PATH="/my-files/backup"
 #   "delete"  (permanently deleted from Proton Drive)
 DELETE_MODE="trash"
 
-# Upload conflict strategy: "replace" (overwrite remote) or "skip".
+# Upload conflict strategy: 
+#   "replace" (overwrite remote) — recommended
+#   "skip".
 UPLOAD_CONFLICT_STRATEGY="replace"
 
 # Cron interval in minutes (--schedule).
-CRON_INTERVAL_MINUTES=300
+CRON_INTERVAL_MINUTES=1440
 
 # Number of archived runs kept in the log directory.
 KEEP_LOG_RUNS=10
+
+# Check for script version updates online when running --version
+# "false"  (Default: no network connection; update check disabled)
+# "true"   (connects to api.github.com — transmits your IP address)
+CHECK_UPDATES="true"
+
+# Retry queue: maximum cumulative attempts per file across runs.
+# Files failing repeatedly (transient API errors) are retried up to
+# this many times before being left pending indefinitely. Range: 1-10.
+# Higher values increase completion chance but delay final failure notice.
+RETRY_MAX_ATTEMPTS="3"
+
+# Retry queue: base seconds for exponential backoff (5^(n-1)).
+# First retry starts immediately; second waits 5s; third 25s; fourth 125s.
+# Lower values speed recovery from transient errors; higher values reduce
+# server stress. Typical range: 5-30.
+RETRY_BACKOFF_BASE="5"
