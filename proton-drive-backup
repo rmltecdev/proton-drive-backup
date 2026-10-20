@@ -51,8 +51,15 @@ set -uo pipefail
 
 APP_NAME="≡ Proton Drive Backup ≡"
 
-VERSION="1.2.0"
-BUILD_DATE="2026-10-07"
+VERSION="1.2.1"
+BUILD_DATE="2026-10-20"
+# SC2034: assigned here, stamped by test/deploy.sh, read in
+# show_version() and the log prefix composition — shellcheck does
+# not trace the cross-function global usage
+# shellcheck disable=SC2034
+BUILD_ID="unset"   # stamped by test/deploy.sh from git describe — never hand-edit
+
+
 
 export PATH="$HOME/bin:$HOME/.local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
 
@@ -1418,9 +1425,16 @@ retry_queue_load() {
 
     while IFS=$'\t' read -r path attempts first_seen last_error; do
         [[ -n "$path" ]] || continue
-        # Defaults tolerate truncated lines from an old crash:
-        # the entry must survive parsing, never vanish silently
-        RETRY_QUEUE["$path"]="${attempts:-1}"$'\t'"${first_seen:-}"$'\t'"${last_error:-}"
+
+        # Entry resilience: defaults tolerate truncated lines from an
+        # old crash, and the numeric guard recovers corrupted attempts
+        # fields (timestamp shifted into the column by pre-1.2.1 record
+        # parsing — see the 2026-10-17 incident). Either way the entry
+        # must survive parsing, never vanish silently and never reach
+        # the increment arithmetic as non-numeric.
+        [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=1
+
+        RETRY_QUEUE["$path"]="${attempts}"$'\t'"${first_seen:-}"$'\t'"${last_error:-}"
     done < "$RETRY_FILE"
 
     log "[INFO] Retry queue loaded: ${#RETRY_QUEUE[@]} entries."
@@ -1494,7 +1508,23 @@ retry_queue_remove() {
 
     [[ "$DRY_RUN" == "true" ]] && return 0
 
-    unset "RETRY_QUEUE[$rel_path]"
+    # Portability guard: bash < 5.2 terminates unset subscripts at
+    # the FIRST ']' — keys like "Movie (2019) [EN].mkv" survive
+    # unset silently on bash 5.1 (Ubuntu 22.04). Existence probing
+    # via expansion is safe in all versions; removal by rebuild.
+    if [[ -n "${RETRY_QUEUE[$rel_path]+x}" ]]; then
+        local -A kept=()
+        local p
+        for p in "${!RETRY_QUEUE[@]}"; do
+            [[ "$p" == "$rel_path" ]] || kept["$p"]="${RETRY_QUEUE[$p]}"
+        done
+        RETRY_QUEUE=()
+        if ((${#kept[@]} > 0)); then
+            for p in "${!kept[@]}"; do
+                RETRY_QUEUE["$p"]="${kept[$p]}"
+            done
+        fi
+    fi
 
     retry_queue_persist
 }
@@ -1602,19 +1632,19 @@ retry_queue_process() {
                 CONFIRMED_THIS_RUN["$path"]=1
                 retry_queue_remove "$path"
                 UPLOAD_BYTES=$((UPLOAD_BYTES + $(stat -c%s "$local_path" 2>/dev/null || echo 0)))
-                detail_success "  Retried successfully: $path"
+                detail_success "Retried successfully: $path"
                 log "[INFO] Retry success: $path"
                 ;;
             1)
                 err_msg=$(capture_cli_error)
-                detail_fail "  Retry failed: $path ($err_msg)"
+                detail_fail "Retry failed: $path ($err_msg)"
                 log "[ERROR] Retry failed for: $path (attempt $attempts) — $err_msg"
                 ERROR_COUNT=$((ERROR_COUNT + 1))
                 retry_queue_record_failure "$path" "$err_msg"
                 ;;
             2)
                 err_msg="Remote directory creation failed"
-                detail_fail "  Cannot create remote directory for: $path"
+                detail_fail "Cannot create remote directory for: $path"
                 log "[ERROR] Remote directory creation failed for: $path"
                 ERROR_COUNT=$((ERROR_COUNT + 1))
                 retry_queue_record_failure "$path" "$err_msg"
@@ -2027,19 +2057,52 @@ show_progress_bar() {
     fi
 
     # ── Tail: raw variant first, normalized to 20 columns below ──
-    # Values longer than 20 columns are truncated by the progress bar 
+    # Values longer than 20 columns are truncated by the progress bar
     # normalizer; keep all ETA-related strings ≤ 20 columns.
+
+    # Three-state tail, evaluated top to bottom:
+    #   1. COMPLETED — phase fully done, no estimate needed
+    #   2. ESTIMATE  — enough elapsed time for a meaningful rate
+    #   3. CALCULATING — too early to estimate honestly
+    #
+    # Design rule: the ETA is DECORATION, never an error source.
+    # Every guard below exists so that no pathological arithmetic
+    # value ever reaches `date` — GNU date rejects such input
+    # loudly ("invalid date '@inf'"), which surfaced as an error
+    # message during the 2026-10-18 retry drain.
+
     if (( current == total && total > 0 )); then
         tail_raw="${MSG[info_eta_completed]}"
+
+    # Guard stack before any division happens:
+    #   elapsed >= 5              — a rate computed from < 5 s is noise
+    #                               (also implies e > 0 inside awk: no
+    #                               divide-by-zero, no inf/nan possible)
+    #   PROGRESS_PHASE_EPOCH > 0  — a phase anchor exists
+    #   current > 0               — at least one item processed
     elif (( elapsed >= 5 && PROGRESS_PHASE_EPOCH > 0 && current > 0 )); then
+
+        # rate = items per second, computed by awk because bash has
+        # no floating point. The inner e>0 check is redundant with
+        # the elapsed>=5 outer guard (belt-and-braces: the shell
+        # guard and the awk guard protect the same division twice)
         rate=$(awk -v c="$current" -v e="$elapsed" \
             'BEGIN { if (e>0) printf "%.2f", c/e; else print 0 }')
+
         remaining=$(( total - current ))
+
+        # eta_epoch = now + remaining/rate. The r>0 guard prevents
+        # divide-by-zero: with rate 0 the ETA degrades to "now"
+        # rather than infinity — an unreachable-but-wrong epoch is
+        # never passed to date.
         eta_epoch=$(awk -v r="$rate" -v f="$remaining" -v n="$now_epoch" \
             'BEGIN { if (r>0) printf "%.0f", n + f/r; else print n }')
+
         eta_str=$(date -d "@$eta_epoch" '+%Y-%m-%d %H:%M')
         tail_raw="${MSG[info_eta_calculating_prefix]} $eta_str"
     else
+        # Phase just started or nothing measurable yet — an honest
+        # "calculating" beats a fabricated instant estimate
         tail_raw="${MSG[info_eta_calculating]}"
     fi
 

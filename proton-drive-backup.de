@@ -165,8 +165,7 @@ LOGGING
     Protokolldatei  %s
     Rotation        Interne, laufbasierte Protokolle werden mit dem 
                     nächsten Lauf archiviert.
-                    %s rotierte Protokolle aufbewahrt,
-                    älteste gelöscht.
+                    %s rotierte Protokolle aufbewahrt, älteste gelöscht.
 
 LÖSCHSTRATEGIE
     Aktueller Modus  %s

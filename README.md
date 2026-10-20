@@ -47,6 +47,7 @@
 
 One-way backup tool that mirrors local directories to Proton Drive using the official Proton Drive CLI.  
 
+> [!NOTE]
 > **Disclaimer** — This is an unofficial community tool.
 > RML Tec Dev is not affiliated with, endorsed or supported by Proton AG.
 > "Proton Drive" is a trademark of Proton AG. Proton AG is not responsible for this tool's functionality or maintenance.
@@ -72,7 +73,7 @@ Our design philosophy embraces this principle: network instability, mount failur
 ## Requirements
 
 * An authenticated Proton Drive account (login handled interactively on first run)  
-* `proton-drive` CLI v0.4.6 or higher (https://proton.me/drive/cli)  
+* `proton-drive` CLI v0.8.x or higher (https://proton.me/drive/cli)  
 * `jq`, `md5sum`, `tar`, GNU `find`, `curl`  
 * bash 4.2 or higher   
 
@@ -200,5 +201,5 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
 ### Version
 
-Version: v1.2.0  
-Build Date: 2026-10-07  
+Version: v1.2.1  
+Build Date: 2026-10-20  

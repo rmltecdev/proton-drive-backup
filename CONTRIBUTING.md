@@ -5,7 +5,7 @@ Thank you for your interest in improving Proton Drive Backup. This document outl
 ## Prerequisites
 
 * An authenticated Proton Drive account (login handled interactively on first run)  
-* `proton-drive` CLI v0.4.6 or higher [https://proton.me/drive/cli](https://proton.me/drive/cli)  
+* `proton-drive` CLI v0.8.x or higher [https://proton.me/drive/cli](https://proton.me/drive/cli)  
 * `jq`, `md5sum`, `tar`, GNU `find`  
 * bash 4.2 or higher  
 

@@ -4,6 +4,7 @@
 
 [General](#general)  
 [Philosophy and Design](#philosophy-and-design)  
+[Network and Connectivity](#network-and-connectivity)
 [Sizing and Fair Use](#sizing-and-fair-use)  
 [Localization and Display](#localization-and-display)  
 [Cron Jobs](#cron-jobs)  
@@ -55,11 +56,33 @@ The GitHub Releases API is unreachable approximately 3% of the time in my enviro
 
 **Should I report this as a bug?** Only if failures persist beyond several days despite stable internet connectivity. Occasional timeouts are expected behavior for external APIs.  
 
+### Why does the summary show "Pending in retry queue" — is my backup incomplete?
+
+A pending entry means a file hit a transient error during upload (network
+drop, server-side 500 responses) and was queued for a retry in the next
+run. The affected run may report "Backup completed with errors" — but
+nothing is lost: the checksum database committed only files whose upload
+was actually confirmed.
+
+The number is a promise, not noise: as long as `Pending in retry queue`
+is greater than zero, the backup set is not yet complete on the remote.
+The next run drains the queue in its retry pre-pass (visible in the log
+as "Retried successfully"). Typical lifetime of an entry is exactly one
+run — a Monday network hiccup is uploaded by the following scheduled run.
+
+An entry that stays pending across multiple runs signals that its
+underlying error is not transient. Inspect the record in
+`~/.config/proton-drive-backup/proton-drive-backup.retry` (four
+tab-separated fields: path, attempts, first_seen, last_error) and the
+corresponding `[ERROR]` lines in the runtime log. Manual editing of the
+file is possible (plain TSV), but is a diagnostic path — not a supported
+workflow for regular operation.
+
 ## Sizing and Fair Use
 
 ### Can I back up my full 2 TB storage?
 
-Be honest with yourself about what this tool is: a curator's backup for selected data, not a terabyte vault. Each run compares file size and mtime against the local database first; only new or changed files are hashed (MD5). Unchanged files are recognized by metadata alone, keeping scans proportional to disk reads, not content volume. A very large data set therefore means a long scan on every run, and Proton's fair use policy applies on the remote side as well.  
+Basically, yes. Though, this tool is a curator's backup for selected data, not a terabyte vault. Each run compares file size and `mtime` against the local database first; only new or changed files are hashed (MD5). Unchanged files are recognized by metadata alone, keeping scans proportional to disk reads, not content volume. A very large data set therefore means a long scan on every run, and Proton's fair use policy applies on the remote side as well.  
 
 Proton's official guidance for the Drive CLI: "To stay within limits, only upload or download what has actually changed — don't reupload the same files repeatedly or rewrite entire folders." This tool implements exactly that by design: only new or changed files are uploaded; unchanged files are skipped entirely.  
 
@@ -222,8 +245,8 @@ Even unchanged files will be hashed; upload phase skips duplicates via MD5 compa
 
 The `--reset-db` flag discards the local checksum database and rebuilds it from scratch. All files are re-hashed, and if remote state differs from the newly computed database, a full re-upload occurs.  
 
-**Warning**  
-On large datasets with slow connections, `--reset-db` may trigger extensive uploads of unchanged files if the remote backend still holds previous versions.
+> [!Warning]
+> On large datasets with slow connections, `--reset-db` may trigger extensive uploads of unchanged files if the remote backend still holds previous versions.
 
 **Recommended usage**  
 
@@ -296,6 +319,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-10-07*
+*Last updated: 2026-10-20*
 *Author: RML Tec Dev*
 

@@ -2,6 +2,35 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.1] - 2026-10-20
+
+### Fixed
+- Removed hostile-filename entries from the retry queue reliably:
+  `retry_queue_remove()` now rebuilds the array instead of calling
+  `unset`, which fails silently for keys containing `]` on bash < 5.2
+  (e.g. Ubuntu 22.04) and for quoting characters (' " \) on every bash
+  version — affected entries stayed in the queue forever, re-uploading
+  on each run and inflating the pending counter
+- Hardened the retry queue loader: corrupted `attempts` fields (legacy
+  of pre-1.2.1 record parsing) now default to 1 instead of crashing the
+  increment arithmetic
+
+### Added
+- `test/deploy.sh`: transport with git-describe build identity, dirty-tree
+  refusal, atomic installation and a SHA-512 deployment manifest —
+  the answer to the invisible stale-deployment incident (M-19)
+- `BUILD_ID` slot in the script header, stamped at deploy time and
+  rendered in version output and log prefix
+- `test/chartest.sh`: unset behavior matrix as measurement tool; results
+  for bash 5.1.16 and 5.2.21 documented in the header
+- Smoke test Section 13: static discipline check — no direct `unset` on
+  the retry queue array
+- Manual tests M-19 through M-21 (deployment verification, ETA under fast
+  item sequences, retry queue removal under hostile filenames)  
+- Publication of SHA-512 checksum for delivered artifacts in release
+  notes; enables tamper detection and customer-side verification of
+  binary integrity (M-22)  
+
 ## [1.2.0] - 2026-10-07
 
 ### Fixed

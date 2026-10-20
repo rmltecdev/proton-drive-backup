@@ -494,6 +494,28 @@ fi
 
 
 
+# ═══ SECTION 13: Retry queue removal discipline ═══════════
+
+section "Retry queue removal discipline"
+
+# unset "RETRY_QUEUE[$key]" fails silently for hostile keys:
+# ']' on bash < 5.2 (Ubuntu 22.04), quoting characters
+# (' " \) on ALL bash versions. Removal must rebuild the
+# array — the measured matrix lives in test/chartest.sh.
+# Gate self-verification: the removal function itself must
+# exist; a broken extraction may never pass as discipline.
+
+if ! grep -q '^retry_queue_remove()' "$MAIN_SCRIPT"; then
+    print_fail "retry_queue_remove() not found — extraction broken?"
+else
+    bare_unset=$(grep -c 'unset.*RETRY_QUEUE\[' "$MAIN_SCRIPT" || true)
+    [[ "$bare_unset" -eq 0 ]] \
+        && print_pass "No bare unset on RETRY_QUEUE (rebuild discipline)" \
+        || print_fail "Direct unset on RETRY_QUEUE found — hostile-key removal regressed"
+fi
+
+
+
 
 
 # ═══ SUMMARY ══════════════════════════════════════════════

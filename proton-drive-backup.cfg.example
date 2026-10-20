@@ -51,7 +51,7 @@ KEEP_LOG_RUNS=10
 # Check for script version updates online when running --version
 # "false"  (Default: no network connection; update check disabled)
 # "true"   (connects to api.github.com — transmits your IP address)
-CHECK_UPDATES="true"
+CHECK_UPDATES="false"
 
 # Retry queue: maximum cumulative attempts per file across runs.
 # Files failing repeatedly (transient API errors) are retried up to
