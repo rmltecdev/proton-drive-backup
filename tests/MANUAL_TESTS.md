@@ -272,6 +272,12 @@ Note: This test mirrors the developer-side manifest verification (M-19);
 customers lack git access, so the release notes serve as their trusted
 anchor.
 
+## M-23 QUIET_MODE console output
+Run `proton-drive-backup --quiet` interactively and verify:
+- [ ] Config banner and tree visible
+- [ ] Quiet notice IS displayed: "● Note Backup running in background. Follow progress with:" + `--log` hint
+- [ ] Single space between "Note" and message text (regression check for literal-glue bug)  
+
 ## Queue entry format (reference)
 
 Each line in `proton-drive-backup.retry` consists of **four tab-separated fields**: `path`, `attempts`, `first_seen`, `last_error`. Example:  
@@ -302,3 +308,4 @@ grep "committed after confirmed phases" runtime.log
 |-----    |-----       |----    |----                       |
 | v1.2.0  | 2026-10-07 | rml    | M-04 pending              |
 | v1.2.1  | 2026-10-20 | rml    | M-04 passed in production |
+| v1.3.0  | 2026-10-11 | rml    |                           |

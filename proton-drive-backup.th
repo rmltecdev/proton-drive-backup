@@ -10,11 +10,12 @@
 # (not affiliated with Proton AG)
 # ─────────────────────────────────────────────────────────────
 
-# ───── Status labels (progress indicator) ────────────────────
+# ───── Status labels (progress indicators) ────────────────────
 MSG[info_eta_calculating_prefix]="ETA"
 MSG[info_eta_calculating]="กำลังคำวนคานวณ…"  # max. 20 fixed-width characters to avoid truncating value
-MSG[info_eta_completed]="…เสร็จสมบูรณ์"     # max. 20 fixed-width characters to avoid truncating value
-MSG[label_delete]="ลบอย่าง (ถาวร)"
+MSG[bar_state_wait]="โปรดรอ…"                # max. 20 fixed-width characters to avoid truncating value
+MSG[bar_state_done]="…เสร็จสมบูรณ์"          # max. 20 fixed-width characters to avoid truncating value
+MSG[label_delete]="กำลังลบอย่าง"
 MSG[label_files]="ไฟล์"
 MSG[label_load]="กำลังโหลด"
 MSG[label_process]="กำลังประมวลผล"
@@ -23,7 +24,7 @@ MSG[label_scan]="กำลังสแกน"
 MSG[status_preparing]="กำลังวิเคราะห์ข้อมูล…"
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="19"   # Inflate padding to align with longest string; adjust to language
+PAD_CONFIG_WIDTH="20"   # Inflate padding to align with longest string; adjust to language
 MSG[info_config_header]="การตั้งค่าการสำรองข้อมูล"
 MSG[info_conflict_strategy]="กลยุทธ์ความขัดแย้ง"
 MSG[info_delete_mode]="โหมดการลบ"
@@ -48,26 +49,25 @@ MSG[fail_remote_create]="ไม่สามารถสร้างโฟลเ�
 
 # ───── Database build and load ────────────────────────────
 MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง"
-MSG[warn_skip_missing_dir]="ข้ามไดเรกทอรีที่หายไป"
-MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
-MSG[warn_db_empty]="ไม่พบไฟล์ในไดเรกทอรีต้นทาง ตรวจสอบการกำหนดค่าใน"
 MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่…"
-MSG[info_lookup_build]="กำลังสร้างตารางการค้นหาการตรวจจับการเปลี่ยนแปลง…"
+MSG[info_lookup_build]="กำลังสร้างระบบตรวจจับการเปลี่ยนแปลงจากฐานข้อมูลเดิม…"
+MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
 MSG[warn_rebuild_db]="กำลังสร้างฐานข้อมูลเช็คซัมใหม่…"
+MSG[fail_skip_missing_dir]="ไม่พบไดเรกทอรี %s โปรดตรวจสอบการกำหนดค่าที่:\n   %s"
+MSG[fail_empty_scan_prev]="การสแกนไม่พบไฟล์ใดๆ ในขณะที่มีฐานข้อมูลเดิมอยู่แล้ว โปรดตรวจสอบการกำหนดค่าที่:\n   %s"
+MSG[fail_empty_scan_first]="ไม่มีอะไรให้สำรองข้อมูล: การสแกนไม่พบไฟล์ใดๆ ในไดเร็กทอรีต้นทาง ตรวจสอบการกำหนดค่าใน:\n   %s"
 MSG[opt_checksum]="บังคับตรวจสอบเช็คซัมแบบสมบูรณ์"
-MSG[info_lookup_build]="สร้างตารางค้นหาจากฐานข้อมูลก่อนหน้า…"
 
 # ───── Upload phase ───────────────────────────────────────
-MSG[info_compare_upload]="การเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลก่อนหน้า…"
-MSG[info_compare_upload_new]="อัปโหลดไฟล์ทั้งหมด (ไม่พบสถานะแบ็กอัพก่อนหน้า)..."
+MSG[info_compare_upload]="กำลังเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลครั้งก่อน พร้อมทั้งอัปโหลดไฟล์ใหม่และไฟล์ที่มีการเปลี่ยนแปลง…"
+MSG[info_compare_upload_new]="อัปโหลดไฟล์ทั้งหมด (ไม่พบสถานะแบ็กอัพก่อนหน้า)…"
 MSG[info_no_local_files]="ไม่มีไฟล์ในเครื่องที่จะประมวลผล"
-MSG[info_uploaded]="ประมวลผลแล้ว"
 
 # ───── Delete phase ───────────────────────────────────────
 MSG[info_compare_delete]="กำลังตรวจสอบไฟล์ที่ถูกลบในเครื่อง…"
 MSG[info_no_orphans]="ไม่มีไฟล์ที่ถูกละเลยที่จะลบ"
 MSG[mode_verb_trash]="ย้ายไปถังขยะ (กู้คืนได้)"
-MSG[mode_verb_delete]="ลบอย่างถาวร"
+MSG[mode_verb_delete]="ลบอย่าง (ถาวร)"
 
 # ───── Lock file management ───────────────────────────────
 MSG[warn_lock_stale]="กำลังนำไฟล์ล็อคเก่าออก…"
@@ -102,7 +102,7 @@ MSG[info_version]="เวอร์ชันสคริปต์"
 MSG[info_build_date]="วันที่สร้างสคริปต์"
 MSG[info_path]="เส้นทางสคริปต์"
 MSG[info_cli_version]="กำลังโหลดข้อมูล Proton Drive CLI…"
-MSG[info_cli_not_installed]="ไม่ได้ติดตั้ง Proton Drive CLI"
+MSG[fail_cli_not_installed]="ไม่ได้ติดตั้ง Proton Drive CLI"
 MSG[label_update_available]="มีอัปเดต"
 MSG[info_update_latest]="คุณใช้เวอร์ชันล่าสุดแล้ว"
 MSG[help_release_url]="https://github.com/rmltecdev/proton-drive-backup/releases"
@@ -117,6 +117,7 @@ MSG[sum_completed_ok]="การสำรองข้อมูลเสร็จ
 MSG[sum_completed_errors]="การสำรองข้อมูลเสร็จสมบูรณ์โดยมีข้อผิดพลาด"
 MSG[sum_retried]="ลองใหม่สำเร็จ"
 MSG[sum_retry_pending]="รออยู่ในคิวลองใหม่"
+MSG[sum_elapsed]="เวลาที่ผ่านไป"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'

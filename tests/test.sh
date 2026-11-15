@@ -102,7 +102,7 @@ else
     print_fail "No version line found in README (pattern 'Version:')"
 fi
 
-changelog_ver=$(grep -m1 -oP '^## \[\K[^\]]+' "$CHANGELOG_FILE")
+changelog_ver=$(grep -m1 -oP '^## \[v\K[^\]]+' "$CHANGELOG_FILE")
 if [[ -n "$changelog_ver" ]]; then
     [[ "$changelog_ver" == "$script_ver" ]] && print_pass "CHANGELOG version matches" \
        || print_fail "CHANGELOG mismatch: $changelog_ver vs $script_ver"
@@ -236,7 +236,29 @@ done
 
 
 
-# ═══ SECTION 8: Localization contract (all locales) ══════
+# ═══ SECTION 7b: Console/Log separation ═══════════════════
+
+section "Console/log separation"
+
+# Console helpers must be log-free: localized console text must
+# never leak into the English-only log (contract: MESSAGES.md).
+# detail_op() is intentionally excluded — it is log-only by design.
+# NOTE: grep on single-line bodies — helpers are defined compactly.
+for fn in info proc warn success fail notice \
+          detail_info detail_warn detail_fail; do
+    body=$(sed -n "/^${fn}() {/,/^}/p" "$MAIN_SCRIPT")
+    if [[ -z "$body" ]]; then
+        print_fail "Console helper missing: $fn()"
+    elif grep -qE '\blog\b *\(' <<< "$body"; then
+        print_fail "${fn}() writes to the log — console helpers must stay log-free"
+    else
+        print_pass "${fn}() is console-only"
+    fi
+done
+
+
+
+# ═══ SECTION 8a: Localization contract (all locales) ══════
 
 section "Localization alignment"
 
@@ -303,7 +325,11 @@ else
     done
 fi
 
-# Corpse keys: keys in a locale unused by the main script — except
+
+
+# ═══ SECTION 8b: Corpse keys ══════
+
+# Keys in a locale unused by the main script — except
 # members of dynamic families (resolved at runtime via ${VAR}).
 mapfile -t dyn_prefixes < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\$\{)' "$MAIN_SCRIPT" | sort -u)
 
@@ -320,6 +346,35 @@ for loc_file in "${locale_files[@]}"; do
     done < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\]=)' "$loc_file" | sort -u)
     [[ $corpse_bad -eq 0 ]] && print_pass "[$lang] No corpse keys"
 done
+
+
+
+# ═══ SECTION 8c: Corpse-functions ══════
+
+# Every defined function must be called at
+# at least one site other than its definition.
+# Call sites hide behind characters the naive space/semicolon
+# pattern missed: "$(fn" (command substitution), trap payloads
+# ('fn'), and quoted context. The prefix class therefore includes
+# parens, quotes and backtick. Definition lines ("fn() {") still
+# count as exactly ONE occurrence — a dead function totals <= 1.
+# Known accepted limitation: a call mentioned in a COMMENT line
+# can satisfy the count — comments are stripped nowhere here.
+mapfile -t defined_fns < <(grep -oP '^[a-z_0-9]+(?=\(\) \{)' "$MAIN_SCRIPT")
+
+if [[ ${#defined_fns[@]} -eq 0 ]]; then
+    print_fail "No function definitions discovered — extraction pattern broken?"
+else
+    dead_found=0
+    for fn in "${defined_fns[@]}"; do
+        calls=$(grep -cP "(^|[;&|[:space:]('\"\`])${fn}\b" "$MAIN_SCRIPT" || true)
+        if (( calls <= 1 )); then
+            print_fail "Dead function: $fn() is defined but never called"
+            dead_found=1
+        fi
+    done
+    [[ $dead_found -eq 0 ]] && print_pass "No dead functions (${#defined_fns[@]} audited)"
+fi
 
 
 

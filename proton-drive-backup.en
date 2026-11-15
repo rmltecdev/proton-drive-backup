@@ -10,10 +10,11 @@
 # (not affiliated with Proton AG)
 # ──────────────────────────────────────────────────────────
 
-# ───── Status labels (indicator words) ────────────────────
+# ───── Status labels (progress indicators) ────────────────────
 MSG[info_eta_calculating_prefix]="ETA"
-MSG[info_eta_calculating]="calculating..."  # max. 20 fixed-width characters to avoid truncating value
-MSG[info_eta_completed]="...completed."     # max. 20 fixed-width characters to avoid truncating value
+MSG[info_eta_calculating]="Calculating..."  # max. 20 fixed-width characters to avoid truncating value
+MSG[bar_state_wait]="Please wait..."        # max. 20 fixed-width characters to avoid truncating value
+MSG[bar_state_done]="...completed."         # max. 20 fixed-width characters to avoid truncating value
 MSG[label_delete]="Deleting"
 MSG[label_files]="files"
 MSG[label_load]="Loading"
@@ -23,7 +24,7 @@ MSG[label_scan]="Scanning"
 MSG[status_preparing]="Analyzing data..."
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="28"   # Inflate padding to align with longest string; adjust to language
+PAD_CONFIG_WIDTH="26"   # Inflate padding to align with longest string; adjust to language
 MSG[info_config_header]="Backup Configuration"
 MSG[info_conflict_strategy]="Conflict strategy"
 MSG[info_delete_mode]="Delete mode"
@@ -48,20 +49,19 @@ MSG[fail_remote_create]="Cannot create remote folder:"
 
 # ───── Database build and load ────────────────────────────
 MSG[info_building_db]="Building local checksum database"
-MSG[warn_skip_missing_dir]="Skipping missing directory:"
-MSG[warn_file_unreadable]="Cannot read file:"
-MSG[warn_db_empty]="No files found in source directories; check configuration in:"
 MSG[info_no_db_found]="No checksum database found; building new one..."
-MSG[info_lookup_build]="Building change-detection lookup table..."
+MSG[info_lookup_build]="Building change-detection from previous database..."
+MSG[warn_file_unreadable]="Cannot read file:"
 MSG[warn_rebuild_db]="Rebuilding checksum database..."
+MSG[fail_skip_missing_dir]="Missing directory %s. Check configuration in:\n   %s"
+MSG[fail_empty_scan_prev]="No files found while a previous database is present. Check configuration in:\n   %s"
+MSG[fail_empty_scan_first]="Nothing to back up: No files found in source directories. Check configuration in:\n   %s"
 MSG[opt_checksum]="Force full checksum verification"
-MSG[info_lookup_build]="Building lookup table from previous database..."
 
 # ───── Upload phase ───────────────────────────────────────
-MSG[info_compare_upload]="Comparing local files against previous backup state..."
+MSG[info_compare_upload]="Comparing local files against the previous backup state, uploading new and changed files..."
 MSG[info_compare_upload_new]="Uploading all files (no previous backup state found)..."
 MSG[info_no_local_files]="No local files to process."
-MSG[info_uploaded]="Processed:"
 
 # ───── Delete phase ───────────────────────────────────────
 MSG[info_compare_delete]="Checking for locally deleted files..."
@@ -102,7 +102,7 @@ MSG[info_version]="Script Version"
 MSG[info_build_date]="Script Build Date"
 MSG[info_path]="Script path"
 MSG[info_cli_version]="Loading Proton Drive CLI Information..."
-MSG[info_cli_not_installed]="Proton Drive CLI not installed."
+MSG[fail_cli_not_installed]="Proton Drive CLI not installed."
 MSG[label_update_available]="Update available"
 MSG[info_update_latest]="You are running the latest release."
 MSG[help_release_url]="https://github.com/rmltecdev/proton-drive-backup/releases"
@@ -117,6 +117,7 @@ MSG[sum_completed_ok]="Backup completed successfully"
 MSG[sum_completed_errors]="Backup completed with errors"
 MSG[sum_retried]="Retried successfully"
 MSG[sum_retry_pending]="Pending in retry queue"
+MSG[sum_elapsed]="Elapsed time"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'

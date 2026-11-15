@@ -9,7 +9,7 @@
 [Localization and Display](#localization-and-display)  
 [Cron Jobs](#cron-jobs)  
 [Logs](#logs)  
-[Progress Display](#progress-display)  
+[Console Output](#console-output)  
 [Should I use --verbose or --quiet?](#should-i-use)  
 [Headless Server Authentication](#headless-server-authentication)  
 [Using `--checksum` Flag](#using-checksum-flag)  
@@ -32,17 +32,46 @@ No — never. The tool only *reads* local files (hashing, comparison, upload). A
 
 ## Philosophy and Design
 
+### Why does my backup "skip" files that are missing on the remote?
+
+The delete phase probes every orphan candidate before acting. If the file is already gone on the remote (removed by hand, by another client, or a previous interrupted run), there is nothing to trash or delete — the run records this as a benign skip, not an error. No local data is affected; the remote and the local database simply agree again after this run.  
+
+### Why does the script refuse to run when the scan finds no files?
+
+A zero-file scan almost always means something is broken: a forgotten mount, a typo'd path, a renamed directory. Continuing would classify EVERY previous entry as an orphan and trash or delete the ENTIRE remote backup. Both cases fail closed:  
+
+- previous database present → abort (data protection)  
+- first run or --reset-db → abort (refuses to create a meaningless empty baseline)  
+
+There is deliberately no override flag. Intentional emptying is a configuration edit followed by manual cleanup — never a flag that a Friday-evening cron job could trip over.  
+
+### Why does a missing configured directory abort the whole run?
+
+Same reasoning as the empty-scan gate, one level earlier: if a `SOURCE_DIR` is missing, the scan sees fewer files and the delete phase would "correct" the remote accordingly. Warning and continuing would silently produce partial backups. The run names the missing directory and the configuration file, and exits.  
+
+### Why is deleting slower than uploading?
+
+Permanent deletion (`DELETE_MODE=delete`) is Proton Drive CLI's mandatory two-step: trash first, then purge the trashed node. Each orphan costs multiple API roundtrips. Trash mode is a single step. Expect delete phases with many orphans to take visibly longer than uploads of the same count. This is a documented CLI limitation.  
+
+### The delete progress bar shows "(0B)" — is something wrong?
+
+No. The delete phase moves references, not bytes — nothing is transferred. The byte counter is structurally part of the bar layout and legitimately reads zero here.  
+
 ### Why does the tool put orphaned files in the trash instead of deleting them?
 
 Because a brake beats no brake. `DELETE_MODE=trash` (the default) keeps every removal recoverable. Deleted-then-restored mistakes are cheap; permanently lost backups are not. Clear the Proton Drive trash periodically after verifying your backups, then switch explicitly to `DELETE_MODE=delete` if you prefer permanent removal.  
 
 ### Renaming a file fills my trash — why?
 
-Renaming is not atomic in the CLI world: it registers as delete plus upload. In trash mode the old copy lands in the trash on the next run. This is expected behavior, not a bug — empty the trash as part of your periodic hygiene.  
+Renaming is not atomic in the CLI world: it registers as delete plus upload. In trash mode the old copy lands in the trash on the next run. This is expected behavior, not a bug — empty the trash as part of your periodic hygiene. This is a documented CLI limitation.  
 
 ### Why are empty remote folders not cleaned up?
 
 The official Proton Drive CLI does not offer recursive folder deletion of empty directories. This is a documented CLI limitation.  
+
+### Why are some error messages not translated?
+
+Deliberately. USER-correctable problems (configuration values, setup mistakes) are localized because the reader acts on them in their own language. SYSTEM-level failures (mktemp, move, commit) speak English in console AND log alike — they are developer-facing, rare, and keeping both surfaces identical makes grep-based diagnosis trivial.  
 
 ### Why does `--help` or `--version` fail with a configuration error?
 
@@ -56,49 +85,26 @@ The GitHub Releases API is unreachable approximately 3% of the time in my enviro
 
 **Should I report this as a bug?** Only if failures persist beyond several days despite stable internet connectivity. Occasional timeouts are expected behavior for external APIs.  
 
-### Why does the summary show "Pending in retry queue" — is my backup incomplete?
-
-A pending entry means a file hit a transient error during upload (network
-drop, server-side 500 responses) and was queued for a retry in the next
-run. The affected run may report "Backup completed with errors" — but
-nothing is lost: the checksum database committed only files whose upload
-was actually confirmed.
-
-The number is a promise, not noise: as long as `Pending in retry queue`
-is greater than zero, the backup set is not yet complete on the remote.
-The next run drains the queue in its retry pre-pass (visible in the log
-as "Retried successfully"). Typical lifetime of an entry is exactly one
-run — a Monday network hiccup is uploaded by the following scheduled run.
-
-An entry that stays pending across multiple runs signals that its
-underlying error is not transient. Inspect the record in
-`~/.config/proton-drive-backup/proton-drive-backup.retry` (four
-tab-separated fields: path, attempts, first_seen, last_error) and the
-corresponding `[ERROR]` lines in the runtime log. Manual editing of the
-file is possible (plain TSV), but is a diagnostic path — not a supported
-workflow for regular operation.
-
 ## Sizing and Fair Use
 
 ### Can I back up my full 2 TB storage?
 
 Basically, yes. Though, this tool is a curator's backup for selected data, not a terabyte vault. Each run compares file size and `mtime` against the local database first; only new or changed files are hashed (MD5). Unchanged files are recognized by metadata alone, keeping scans proportional to disk reads, not content volume. A very large data set therefore means a long scan on every run, and Proton's fair use policy applies on the remote side as well.  
-
-Proton's official guidance for the Drive CLI: "To stay within limits, only upload or download what has actually changed — don't reupload the same files repeatedly or rewrite entire folders." This tool implements exactly that by design: only new or changed files are uploaded; unchanged files are skipped entirely.  
-
+Proton's official guidance for the Drive CLI: "To stay within limits, only upload or download what has actually changed — don't reupload the same files repeatedly or rewrite entire folders." This tool implements exactly that by design: only new or changed files are uploaded; unchanged files are skipped entirely.    
 If your data set grows into terabytes, consider splitting: curated documents via this tool, bulk media archives via dedicated bulk storage.  
 
 ### My first run is slow — is that normal?
 
-Yes. The first run builds the checksum database, which reads and hashes every configured file once. subsequent runs perform a metadata-only pass (one stat per file) plus hashing of changed files only.  
+Yes. The first run builds the checksum database, which reads and hashes every configured file once. Subsequent runs perform a metadata-only pass (one stat per file) plus hashing of changed files only.  
 
 ## Localization and Display
 
 ### My table columns are misaligned under non-English messages
+
 Any language whose text contains multibyte UTF-8 glyphs…  
 
-* umlauts (e.g. Finnish, German, Turkish, Hungarian),  
-*  ligatures (e.g. Danish, German, Norwegian, Swedish),  
+* umlauts (e.g. Finnish, German, Hungarian, Turkish),  
+* ligatures (e.g. Danish, German, Norwegian, Swedish),  
 * diacritics (e.g. Czech, French, Icelandic, Portuguese, Romanian, Spanish),  
 * combining marks (e.g. Khmer, Lao, Thai)  
 
@@ -122,7 +128,7 @@ Because three different units are involved: `printf` measures BYTES in field wid
 
 Cron runs without your desktop session environment. The script already exports the D-Bus session address for credential access, but if you logged in per-user: verify the cron user matches the user who authenticated the Proton Drive CLI. Run the script once manually (no `--quiet`, use `--verbose` instead) to trigger interactive login.  
 
-## Logs
+## Logging
 
 ### Where are my old logs?
 
@@ -132,17 +138,41 @@ At the start of each run, the previous run's logs are archived as `<UTC-stamp>.t
 
 Retention is controlled via `KEEP_LOG_RUNS` in the config file.  
 
-## Progress Display
+### Does `--quiet` affect the log file?
 
-### The progress bar disappeared after I resized the terminal
+No. Quiet mode changes TERMINAL OUTPUT ONLY — progress and
+per-file lines are suppressed; banner, configuration and the final summary remain visible. The runtime log always receives the complete English record, independent of console verbosity. For cron, prefer `--quiet`: terminal rendering dominates runtime on small runs, not the log.  
+
+### My old log shows double slashes in remote paths (e.g.
+`/my-files/backup//file.jpg`). Do I have a path bug?
+
+Most likely a healed data echo, not a construction bug: file names containing control characters (a stray newline in a directory name — ext4 permits this) split into fragments during line-oriented reading and produced malformed path joins once. Rename the directory, run once — the fragments age out with the next database generation. Renaming to plain ASCII names is strongly recommended for anything a backup tool processes.  
+
+## Console Output
+
+### Backup Summary
+
+### Why does the backup summary show "Pending in retry queue" — is my backup incomplete?
+
+A pending entry means a file hit a transient error during upload (network drop, server-side 500 responses) and was queued for a retry in the next run. The affected run may report "Backup completed with errors" — but nothing is lost: the checksum database committed only files whose upload was actually confirmed.  
+The number is a promise, not noise: as long as `Pending in retry queue` is greater than zero, the backup set is not yet complete on the remote. The next run drains the queue in its retry pre-pass (visible in the log as "Retried successfully"). Typical lifetime of an entry is exactly one run — a Monday network hiccup is uploaded by the following scheduled run.  
+An entry that stays pending across multiple runs signals that its underlying error is not transient. Inspect the record in `~/.config/proton-drive-backup/proton-drive-backup.retry` (four tab-separated fields: path, attempts, first_seen, last_error) and the corresponding `[ERROR]` lines in the runtime log. Manual editing of the file is possible (plain TSV), but is a diagnostic path — not a supported workflow for regular operation.  
+
+### Progress Display
+
+#### The delete progress shows `(0B)` — is nothing being freed on Proton Drive?
+
+Expected behavior, not a defect. The size segment tracks bytes *transferred*, and deletions transfer nothing. Orphaned files exist only on the remote, so at deletion time the tool knows their paths but not their sizes. Displaying them would require looking up and accumulating sizes from the previous state database inside the delete loop — complexity we deliberately rejected for a cosmetic figure.  
+Operationally: removed files are moved to the Proton Drive trash (or permanently deleted, depending on configuration). Trashed files still count toward the Proton Drive quota until the trash is emptied; the Proton Drive web UI shows the authoritative figures (see above).  
+
+#### The progress bar disappeared after I resized the terminal
 
 Expected behavior by design. A resize invalidates the cached terminal geometry the progress bar depends on. Instead of guessing, the tool disables the display, prints a warning, and continues in quiet mode. Progress remains observable in the logs; follow them live with `proton-drive-backup --log` or `tail -f` on the transfer log.  
 
-
 ## Should I use `--verbose` or `--quiet`?
 
-- Use `--verbose` for **manual runs** — and visual progress feedback.  
-- Use `--quiet` for **cronjobs** — minimizes I/O and keeps logs clean.  
+- Use `--verbose` for **manual runs** — visualizes transparent progress feedback.  
+- Use `--quiet` for **cronjobs** — minimizes I/O and keeps terminal clean.  
 
 For initial backups or after a `--reset-db`, always use `--verbose` to verify the upload is proceeding correctly.  
 
@@ -319,6 +349,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-10-20*
+*Last updated: 2026-11-15*
 *Author: RML Tec Dev*
 

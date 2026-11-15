@@ -51,8 +51,8 @@ set -uo pipefail
 
 APP_NAME="≡ Proton Drive Backup ≡"
 
-VERSION="1.2.1"
-BUILD_DATE="2026-10-20"
+VERSION="1.3.0"
+BUILD_DATE="2026-11-15"
 # SC2034: assigned here, stamped by test/deploy.sh, read in
 # show_version() and the log prefix composition — shellcheck does
 # not trace the cross-function global usage
@@ -105,6 +105,7 @@ UPLOAD_BYTES=0
 DELETE_COUNT=0
 ERROR_COUNT=0
 WARNING_COUNT=0
+RUN_START_EPOCH=$(date +%s)
 
 # Track created remote dirs
 declare -gA CREATED_REMOTE_DIRS=()
@@ -123,17 +124,71 @@ FORMATTING_HEADER="\033[1;34m"
 
 
 
+# ── Per-file operation tags (log only) ────────────────────
+# Centered to the same 12-column interior as the level tags;
+# uneven lengths take the extra space on the right. Tags
+# describe the OUTCOME of an operation, never the intent —
+# a node already absent on remote is SKIPPED, not TRASHED.
+# Console output is NOT touched by any of these.
+
+TAG_UPLOADED="[  UPLOADED  ]"
+TAG_SKIPPED="[  SKIPPED   ]"
+TAG_TRASHED="[  TRASHED   ]"
+TAG_DELETED="[  DELETED   ]"
+
+# Log-only per-file entry with an operation tag. Per-file
+# detail stays log-only by design (console-flood prevention).
+detail_op() {
+    log "$1 $2"
+}
+
+
+
+# Staging files of build_local_db() — global on purpose: cleanup()
+# runs as the EXIT trap in the top-level context and must be able
+# to remove them from ANY exit point; local variables die with
+# their function and are invisible to the trap. Empty until the
+# build phase allocates them.
+TMP_ENTRIES=""
+TMP_EDGE=""
+TMP_ENTRIES_JSON=""
+TMP_OUTPUT=""
+
+    TMP_ENTRIES=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file for database build."
+        fail "Unable to create temp file for database build."
+        exit 1
+    }
+    TMP_ENTRIES_JSON="${TMP_ENTRIES}.json"   # derived path, like the original
+
+
+
 # ───── Low-Level Logging (file only) ──────────────────────
 
+declare -g LOG_BUFFER=()
+declare -g LOG_INITIALIZED=false
+
 log() {
-    local message
+    local line
+    line="$(date '+%Y-%m-%d %H:%M:%S') [${SCRIPT_NAME} v${VERSION}] ${1:-}"
+    if [[ "$LOG_INITIALIZED" == "true" ]]; then
+        printf '%s\n' "$line" >> "$RUNTIME_LOG"
+    else
+        LOG_BUFFER+=("$line")
+    fi
+}
 
-    message="${1:-}"
-
-    [[ -d "$LOG_DIR" ]] || mkdir -p "$LOG_DIR"
-    printf "[%s] [%s, v%s] %s\n" \
-        "$(date '+%Y-%m-%d %H:%M:%S')" "$SCRIPT_NAME" "$VERSION" "$message" \
-        >> "$RUNTIME_LOG"
+init_logging() {
+    LOG_INITIALIZED=true           # direct writes from here on
+    archive_completed_runs         # "Archived run logs: …" (direct)
+    prune_old_runs                 # "Pruned …" (direct)
+    # Flush deferred pre-init lines AFTER the bookkeeping entries,
+    # so the fresh log reads: Archived → Pruned → Loaded
+    # localization → Loaded configuration → Run configuration → Lock acquired
+    if (( ${#LOG_BUFFER[@]} > 0 )); then
+        printf '%s\n' "${LOG_BUFFER[@]}" >> "$RUNTIME_LOG"
+        LOG_BUFFER=()
+    fi
 }
 
 
@@ -187,57 +242,60 @@ pad_to() {
 
 # ───── Phase-Level Message Functions ──────────────────────
 # Always write to log file. Console output controlled by QUIET_MODE.
+# Console helpers (info/proc/warn/success/fail) are console-only:
+# the English-only log receives literals exclusively via log().
 
 info() {
-    log "[INFO] ${1:-}"
     if [[ "$QUIET_MODE" != "true" ]]; then
-        echo -e "${INDICATOR_INFO}${FORMATTING_RESET}${1:-}"
+        echo -e "${INDICATOR_INFO}${FORMATTING_RESET} ${1:-}"
     fi
 }
 
 proc() {
-    log "[PROCESSING] ${1:-}"
     if [[ "$QUIET_MODE" != "true" ]]; then
-        echo -e "   ${INDICATOR_PROC}${FORMATTING_RESET}${1:-}"
+        echo -e "${INDICATOR_PROC}${FORMATTING_RESET} ${1:-}"
     fi
 }
 
 notice() {
-    log "[NOTICE] ${1:-}"
-    echo -e "${INDICATOR_INFO}Note${FORMATTING_RESET}${1:-}"
+    echo -e "${INDICATOR_INFO}Note${FORMATTING_RESET} ${1:-}"
 }
 
 warn() {
-    [[ -d "$LOG_DIR" ]] && log "[WARN] ${1:-}"
-    echo -e "${INDICATOR_WARN}${FORMATTING_RESET}${1:-}" >&2
+    echo -e "${INDICATOR_WARN}${FORMATTING_RESET} ${1:-}" >&2
 }
 
 fail() {
-    log "[ERROR] ${1:-}"
-    echo -e "${INDICATOR_FAIL}${FORMATTING_RESET}${1:-}" >&2
+    echo -e "${INDICATOR_FAIL}${FORMATTING_RESET} ${1:-}" >&2
 }
 
 success() {
-    log "[SUCCESS] ${1:-}"
     if [[ "$QUIET_MODE" != "true" ]]; then
-        echo -e "${INDICATOR_PASS}${FORMATTING_RESET}${1:-}"
+        echo -e "${INDICATOR_PASS}${FORMATTING_RESET} ${1:-}"
     fi
 }
 
 detail_info() {
-    log "[INFO] ${1:-}"
-}
-
-detail_success() {
-    log "[SUCCESS] ${1:-}"
+    log "[    INFO    ] ${1:-}"
 }
 
 detail_warn() {
-    log "[WARN] ${1:-}"
+    log "[  WARNING   ] ${1:-}"
 }
 
 detail_fail() {
-    log "[ERROR] ${1:-}"
+    log "[   ERROR    ] ${1:-}"
+}
+
+
+
+# Past-tense verb for the active delete mode; English log-only
+# counterpart to MSG[mode_verb_*] (console keeps the localized phrase).
+delete_mode_past() {
+    case "$DELETE_MODE" in
+        delete) printf 'Deleted' ;;
+        *)      printf 'Trashed' ;;
+    esac
 }
 
 
@@ -275,7 +333,8 @@ load_locale() {
     fi
     # shellcheck disable=SC1090
     source "$target_file"
-    log "[INFO] Loaded localization from $target_file"
+
+    log "[    INFO    ] Loaded localization from $target_file"
 }
 
 
@@ -298,6 +357,7 @@ load_config() {
 
     if [[ ! -f "$CONFIG_FILE" ]]; then
         show_header
+        log "[  FAILURE   ] Configuration file missing: $CONFIG_FILE"
         # shellcheck disable=SC2059
         fail "$(printf "%s\n         %s" "${MSG[fail_config_missing]}" "$CONFIG_FILE")"
         # shellcheck disable=SC2059
@@ -307,6 +367,7 @@ load_config() {
 
     if ! bash -n "$CONFIG_FILE" 2> "$TMP_ERR_FILE"; then
         show_header
+        log "[  FAILURE   ] Configuration file has syntax errors: $CONFIG_FILE" 
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[fail_config_syntax]}" "$CONFIG_FILE")"
         sed "s|^$CONFIG_FILE: ||" "$TMP_ERR_FILE" | sed 's/^/  /' >&2
@@ -315,7 +376,9 @@ load_config() {
 
     # shellcheck disable=SC1090
     source "$CONFIG_FILE"
-    log "[INFO] Loaded configuration from $CONFIG_FILE"
+
+    log "[    INFO    ] Loaded configuration from $CONFIG_FILE"
+    log "[    INFO    ] Running configuration: conflict-strategy=${UPLOAD_CONFLICT_STRATEGY}, delete-mode=${DELETE_MODE}, dry-run=${DRY_RUN:-false}, reset-db=${RESET_DB}"
 }
 
 
@@ -391,13 +454,11 @@ show_menu() {
 show_help() {
     show_header
     echo "${MSG[help_open]}" 
-    log "Opening help..."
     # shellcheck disable=SC2059
     # tmpl-style key: help body is a locale template by design (MESSAGES.md)
     printf "${MSG[help_text]}" "$SCRIPT_NAME" "$CRON_INTERVAL_MINUTES" \
         "$RUNTIME_LOG" "$KEEP_LOG_RUNS" "$DELETE_MODE" | less
     echo "${MSG[help_close]}"
-    log "Help closed."
     exit 0
 }
 
@@ -423,11 +484,11 @@ show_version() {
             printf "    %s\n" "$line"
         done < <(proton-drive version 2>&1)
     else
-        fail "${MSG[info_cli_not_installed]}"
-        log "[WARN] Proton Drive CLI not installed."
+        log "[  FAILURE   ] Proton Drive CLI not installed."
+        fail "${MSG[fail_cli_not_installed]}"
     fi
 
-    log "[INFO] Version information displayed."
+    echo ""
     exit 0
 }
 
@@ -467,7 +528,7 @@ check_for_updates() {
         "$url" 2>/dev/null | jq -r '.tag_name // empty')
 
     [[ -n "$remote_tag" ]] || {
-        log "[INFO] Update check: no release metadata received."
+        log "[    INFO    ] Update check: no release metadata received."
         return 0
     }
 
@@ -478,7 +539,7 @@ check_for_updates() {
         remote_minor="${BASH_REMATCH[2]}"
         remote_patch="${BASH_REMATCH[4]:-0}"
     else
-        log "[INFO] Update check: unparseable remote tag '$remote_tag'."
+        log "[  WARNING   ] Update check: unparseable remote tag '$remote_tag'."
         return 0
     fi
 
@@ -489,7 +550,7 @@ check_for_updates() {
         minor="${BASH_REMATCH[2]}"
         patch="${BASH_REMATCH[4]:-0}"
     else
-        log "[INFO] Update check: unparseable local version '$VERSION'."
+        log "[  WARNING   ] Update check: unparseable local version '$VERSION'."
         return 0
     fi
 
@@ -519,13 +580,13 @@ check_for_updates() {
         # shellcheck disable=SC2059
         printf "${MSG[tmpl_release_url]}" \
             "$(pad_to "" "$PAD_VERSION_WIDTH")" "${MSG[help_release_url]}"
-        log "[INFO] Update available: local $VERSION, remote v${remote_ver}"
+        log "[    INFO    ] Update available: local $VERSION, remote v${remote_ver}"
     elif (( cmp == 0 )); then
         # shellcheck disable=SC2059
         printf "  %-20s\n" "${MSG[info_update_latest]}"
-        log "[INFO] Update check: current $VERSION equals latest v${remote_ver}."
+        log "[    INFO    ] Update check: current $VERSION equals latest v${remote_ver}."
     else
-        log "[INFO] Update check: local $VERSION is ahead of latest v${remote_ver}."
+        log "[    INFO    ] Update check: local $VERSION is ahead of latest v${remote_ver}."
     fi
 }
 
@@ -579,6 +640,7 @@ is_cron_scheduled() {
 }
 
 
+
 # Installs the daily backup line via temp-file rewrite — never
 # streams into `crontab -` directly, so a mid-write failure
 # cannot truncate the user's existing crontab.
@@ -615,6 +677,8 @@ schedule_cron() {
     echo "${MSG[cron_logs_written]} $RUNTIME_LOG"
     exit 0
 }
+
+
 
 # Removes exactly our marked line; foreign entries survive the
 # rewrite untouched.
@@ -662,8 +726,9 @@ archive_completed_runs() {
 
     if tar -czf "$archive" -C "$LOG_DIR" "${members[@]}" 2>/dev/null; then
         rm -f "$RUNTIME_LOG" "$TRANSFER_LOG"
-        log "[INFO] Archived run logs: $(basename "$archive")"
+        log "[    INFO    ] Archived run logs: $(basename "$archive")"
     else
+        log "[   ERROR    ] Unable to archive previous run logs."
         warn "${MSG[warn_archive_failed]}"
         rm -f "$archive"
     fi
@@ -685,7 +750,8 @@ prune_old_runs() {
                                  2>/dev/null | tail -n +"$(( KEEP_LOG_RUNS + 1 ))")
     [[ ${#old_archives[@]} -eq 0 ]] && return 0
     rm -f "${old_archives[@]}"
-    log "[INFO] Pruned ${#old_archives[@]} archived run(s) beyond KEEP_LOG_RUNS."
+
+    log "[    INFO    ] Pruned ${#old_archives[@]} archived run(s) beyond KEEP_LOG_RUNS."
 }
 
 
@@ -720,6 +786,7 @@ check_dependencies() {
     fi
 
     if [[ ${#missing[@]} -gt 0 ]]; then
+        log "[  FAILURE   ] Missing dependencies: ${missing[*]}"
         fail "${MSG[fail_dep_missing]} ${missing[*]}"
         echo ""
         echo "  - proton-drive  See https://proton.me/drive/cli"
@@ -844,6 +911,7 @@ acquire_lock() {
         read -r existing_pid _ < "$LOCK_FILE" 2>/dev/null || true
 
         if [[ -n "$existing_pid" ]] && kill -0 "$existing_pid" 2>/dev/null; then
+            log "[  FAILURE   ] Another instance is running (PID: $existing_pid)."
             # shellcheck disable=SC2059
             fail "$(printf "${MSG[tmpl_lock_running]}" "$existing_pid")"
             exit 1
@@ -854,7 +922,7 @@ acquire_lock() {
     fi
 
     echo "$pid $start_time" > "$LOCK_FILE"
-    log "[INFO] Lock acquired (PID: $pid)"
+    log "[    INFO    ] Lock acquired (PID: $pid)"
 
     # HUP covers closing the terminal window during a run
     trap 'abort_cleanup; exit 130' INT
@@ -871,7 +939,7 @@ acquire_lock() {
 release_lock() {
     if [[ -f "$LOCK_FILE" ]]; then
         rm -f "$LOCK_FILE"
-        log "[INFO] Lock released."
+        log "[    INFO    ] Lock released."
     fi
 }
 
@@ -886,7 +954,7 @@ ensure_session() {
     info "${MSG[info_session_check]}"
 
     if proton-drive filesystem list /my-files --json &>/dev/null; then
-        success "${MSG[info_session_valid]}"
+        success "${MSG[info_session_valid]}";  log "[  SUCCESS   ] Session is valid."
         return 0
     else
         warn "${MSG[info_auth_required]}"
@@ -901,9 +969,10 @@ ensure_session() {
         fi
 
         if proton-drive auth login; then
-            success "${MSG[info_login_success]}"
+            success "${MSG[info_login_success]}";  log "[  SUCCESS   ] Login successful."
             return 0
         else
+            log "[  FAILURE   ] Interactive login failed; no valid session."
             fail "${MSG[fail_login_failed]}"
             return 1
         fi
@@ -946,8 +1015,9 @@ ensure_remote_dir() {
             if ! proton-drive filesystem create-folder "$parent" "$name" >/dev/null 2>&1; then
                 # Folder may already exist — verify
                 if proton-drive filesystem info "$base" >/dev/null 2>&1; then
-                    log "[INFO] Remote folder already exists: $base"
+                    log "[    INFO    ] Remote folder already exists: $base"
                 else
+                    log "[   ERROR    ] Unable to create remote base folder: $base"
                     fail "${MSG[fail_remote_create]} $base"
                     return 1
                 fi
@@ -978,8 +1048,9 @@ ensure_remote_dir() {
                 if ! proton-drive filesystem create-folder "$current" "$seg" >/dev/null 2>&1; then
                     # Folder may already exist — verify
                     if proton-drive filesystem info "$next" >/dev/null 2>&1; then
-                        log "[INFO] Remote folder already exists: $next"
+                        log "[    INFO    ] Remote folder already exists: $next"
                     else
+                        log "[   ERROR    ] Unable to create remote folder: $next"
                         fail "${MSG[fail_remote_create]} $next"
                         return 1
                     fi
@@ -1057,8 +1128,8 @@ escape_glob_chars() {
 # file only after all phases confirm.
 
 build_local_db() {
-    info "${MSG[info_building_db]}:"
-    log "[INFO] Starting database build."
+    info "${MSG[info_building_db]}"
+    log "[    INFO    ] Starting database build."
 
     local file_count total_size total_files src_dir fast_reused
 
@@ -1076,21 +1147,33 @@ build_local_db() {
         n=$(find "$src_dir" -type f -not -type l -print 2>/dev/null | wc -l)
         total_files=$(( total_files + n ))
     done
-    log "[INFO] File pre-count for progress display: $total_files files."
+    log "[    INFO    ] File pre-count for progress display: $total_files files."
 
-    local tmp_entries tmp_edge tmp_output
+    TMP_ENTRIES=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file for database build."
+        fail "Unable to create temp file for database build."
+        exit 1
+    }
 
-    tmp_entries=$(mktemp) || { fail "Cannot create temp file for database build."; exit 1; }
-    tmp_edge=$(mktemp) || { fail "Cannot create temp file for edge-case entries."; rm -f "$tmp_entries"; exit 1; }
+    TMP_EDGE=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file for edge-case entries."
+        fail "Unable to create temp file for edge-case entries."
+        rm -f "$TMP_ENTRIES"
+        exit 1
+    }
 
     for src_dir in "${SOURCE_DIRS[@]}"; do
         if [[ ! -d "$src_dir" ]]; then
-            warn "${MSG[warn_skip_missing_dir]} $src_dir"
-            continue
+            log "[  FAILURE   ] Missing source directory: $src_dir"
+            rm -f "$TMP_ENTRIES" "$TMP_EDGE"
+            # shellcheck disable=SC2059
+            fail "$(printf "${MSG[fail_skip_missing_dir]}" "$src_dir" "$CONFIG_FILE")"
+            exit 1
         fi
 
+        log "[ PROCESSING ] Scanning $src_dir..."
         proc "${MSG[label_scan]} $src_dir..."
-        
+
         # Anchor the bar from the very start of the phase
         progress_anchor
 
@@ -1105,6 +1188,7 @@ build_local_db() {
             rel_path="${rel_path#/}"
 
             if ! meta=$(stat -c '%s %Y' "$file" 2>/dev/null); then
+                log "[  WARNING   ] File unreadable: $file"
                 warn "${MSG[warn_file_unreadable]} $file"
                 continue
             fi
@@ -1129,6 +1213,7 @@ build_local_db() {
             # ── Slow path: full hash for new or changed files ──
             if [[ -z "$checksum" ]]; then
                 checksum=$(md5sum "$file" 2>/dev/null | awk '{print $1}') || {
+                    log "[  WARNING   ] File unreadable: $file"
                     warn "${MSG[warn_file_unreadable]} $file"
                     continue
                 }
@@ -1143,11 +1228,11 @@ build_local_db() {
                 jq -nc --arg lp "$file" --arg rp "$rel_path" --arg md5 "$checksum" \
                     --argjson sz "$file_size" --argjson me "$file_mtime_epoch" \
                     '{local_path: $lp, relative_path: $rp, md5: $md5,
-                      size_bytes: $sz, mtime_epoch: $me}' >> "$tmp_edge"
+                    size_bytes: $sz, mtime_epoch: $me}' >> "$TMP_EDGE"
             else
                 printf '%s\x1f%s\x1f%s\x1f%s\x1f%s\n' \
                     "$file" "$rel_path" "$checksum" "$file_size" "$file_mtime_epoch" \
-                    >> "$tmp_entries"
+                    >> "$TMP_ENTRIES"
             fi
 
             file_count=$((file_count + 1))
@@ -1160,19 +1245,47 @@ build_local_db() {
         done < <(find "$src_dir" -type f -not -type l -print0 2>/dev/null)
     done
 
-    if [[ "$file_count" -eq 0 ]]; then
-        warn "$(printf '%s\n         %s' "${MSG[warn_db_empty]}" " ${CONFIG_FILE}")"
+    # ── SAFETY GATE: an empty scan always stops the run ──
+    # A scan yielding 0 files (forgotten mount, renamed/typo'd
+    # SOURCE_DIR) would classify EVERY previous entry as an
+    # orphan and trash/delete the ENTIRE remote backup in
+    # compare_and_delete(). Both cases fail closed — the
+    # previous-DB case protects data, the first-run case
+    # refuses to create a meaningless empty baseline.
+    # Intentional emptying/removal is a CONFIG edit (see FAQ);
+    # there is deliberately no override flag.
+    if (( file_count == 0 )); then
+        rm -f "$TMP_ENTRIES" "$TMP_EDGE"
+        if [[ "$PREVIOUS_DB_PATH" != "/dev/null" ]]; then
+            log "[  FAILURE   ] No local files scanned while the previous database holds ${#PREV_MD5_MAP[@]} entries: probable mount/config failure. Delete phase never reached, local database untouched."
+            # shellcheck disable=SC2059
+            fail "$(printf "${MSG[fail_empty_scan_prev]}" "$CONFIG_FILE")"
+        else
+            log "[  FAILURE   ] No files scanned (first run or --reset-db): no previous entries, nothing to back up. No database created."
+            # shellcheck disable=SC2059
+            fail "$(printf "${MSG[fail_empty_scan_first]}" "$CONFIG_FILE")"
+        fi
+        exit 1
     fi
 
-    local srcdirs_json tmp_output human_size
-    
+    local srcdirs_json human_size
+
     srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
-    tmp_output=$(mktemp) || { fail "Cannot create temp file for output."; rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json"; exit 1; }
+
+    TMP_OUTPUT=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file for output."
+        fail "Unable to create temp file for output."
+        rm -f "$TMP_ENTRIES" "$TMP_EDGE" "$TMP_ENTRIES_JSON"
+        exit 1
+    }
 
     # ── Single-shot conversion: collected TSV → JSON entries ──
-    # shellcheck disable=SC2034
-    jq -R -s '
-        (if . == "" then "[]" else
+    # Empty input MUST yield an empty ARRAY, never the string "[]":
+    # the wrapper below adds $entries[0] + [inputs]; a JSON string
+    # made jq die with "string (\"[]\") and array cannot be added"
+    # and left an EMPTY staging DB that was later committed.
+    if ! jq -R -s '
+        (if . == "" then [] else
           rtrimstr("\n") | split("\n")
           | map(split("\u001f"))
           | map({ local_path: .[0],
@@ -1181,28 +1294,25 @@ build_local_db() {
                   size_bytes: (.[3] | tonumber),
                   mtime_epoch: (.[4] | tonumber),
                   mtime: ((.[4] | tonumber) | todate) })
-        end)' "$tmp_entries" > "${tmp_entries}.json" \
-        && tmp_json_entries="${tmp_entries}.json"
-
-    srcdirs_json=$(printf '%s\n' "${SOURCE_DIRS[@]}" | jq -R . | jq -s '.')
-    tmp_output=$(mktemp) || {
-        fail "Cannot create temp file for output."
-        rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json"
+        end)' "$TMP_ENTRIES" > "$TMP_ENTRIES_JSON"; then
+        log "[  FAILURE   ] Unable to convert collected entries to JSON."
+        fail "Unable to convert collected entries to JSON."
+        rm -f "$TMP_ENTRIES" "$TMP_EDGE" "$TMP_ENTRIES_JSON" "$TMP_OUTPUT"
         exit 1
-    }
+    fi
 
     # ── Final wrapper: header + main entries + edge-case entries ──
-    if [[ -s "${tmp_entries}.json" ]]; then
+    if [[ -s "$TMP_ENTRIES_JSON" ]]; then
         jq -n \
             --arg ver "1.0" \
             --arg created "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
             --arg modified "$(date -u '+%Y-%m-%dT%H:%M:%SZ')" \
-            --slurpfile entries "${tmp_entries}.json" \
+            --slurpfile entries "$TMP_ENTRIES_JSON" \
             --argjson srcdirs "$srcdirs_json" \
             --arg rbp "$REMOTE_BASE_PATH" \
             '{version: $ver, created_at: $created, last_modified: $modified,
               entries: ($entries[0] + [inputs]), source_dirs: $srcdirs, remote_base: $rbp}' \
-            < <(cat /dev/null "$tmp_edge") > "$tmp_output"
+            < <(cat /dev/null "$TMP_EDGE") > "$TMP_OUTPUT"
     else
         jq -n \
             --arg ver "1.0" \
@@ -1212,22 +1322,26 @@ build_local_db() {
             --arg rbp "$REMOTE_BASE_PATH" \
             '{version: $ver, created_at: $created, last_modified: $modified,
               entries: [inputs], source_dirs: $srcdirs, remote_base: $rbp}' \
-            < <(cat /dev/null "$tmp_edge") > "$tmp_output"
+            < <(cat /dev/null "$TMP_EDGE") > "$TMP_OUTPUT"
     fi
 
     # ── Staging only — commit_db() will finalize later ──────
     NEW_DB_PATH=$(mktemp) || {
-        fail "Cannot create staging file for database build."
-        rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json" "$tmp_output"
+        log "[  FAILURE   ] Unable to create staging file for database build."
+        fail "Unable to create staging file for database build."
+        rm -f "$TMP_ENTRIES" "$TMP_EDGE" "$TMP_ENTRIES_JSON" "$TMP_OUTPUT"
         exit 1
     }
 
-    mv "$tmp_output" "$NEW_DB_PATH" || {
-        rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json" "$tmp_output" "$NEW_DB_PATH"
-        fail "Failed to move staging database."
+    mv "$TMP_OUTPUT" "$NEW_DB_PATH" || {
+        rm -f "$TMP_ENTRIES" "$TMP_EDGE" "$TMP_ENTRIES_JSON" "$TMP_OUTPUT" "$NEW_DB_PATH"
+        log "[  FAILURE   ] Unable to move staging database."
+        fail "Unable to move staging database."
         exit 1
     }
-    rm -f "$tmp_entries" "$tmp_edge" "${tmp_entries}.json" "$tmp_output"
+    TMP_OUTPUT=""   # consumed by mv — path no longer exists
+
+    rm -f "$TMP_ENTRIES" "$TMP_EDGE" "$TMP_ENTRIES_JSON"
 
     # Console gets human-readable size; the log below keeps raw
     # bytes (grep- and diff-friendly for automated consumption).
@@ -1236,7 +1350,7 @@ build_local_db() {
 
     # shellcheck disable=SC2059
     info "$(printf "${MSG[tmpl_db_built]}" "$file_count" "$human_size")"
-    log "[INFO] Fast path reused stored MD5 for $fast_reused of $file_count files ($(( fast_reused * 100 / (file_count > 0 ? file_count : 1) ))%), $total_size bytes."
+    log "[    INFO    ] Fast path reused stored MD5 for $fast_reused of $file_count files ($(( fast_reused * 100 / (file_count > 0 ? file_count : 1) ))%), $total_size bytes."
 
     # Final state visibility (once per phase, not per file)
     if [[ "$VERBOSE" == "true" ]]; then
@@ -1263,7 +1377,7 @@ load_local_db() {
         warn "${MSG[warn_rebuild_db]}"
         PREVIOUS_DB_PATH="/dev/null"
         build_local_db
-        log "[INFO] Previous DB discarded (--reset-db); 0 entries loaded."
+        log "[    INFO    ] Previous DB discarded (--reset-db); 0 entries loaded."
         return 0
     fi
 
@@ -1277,7 +1391,12 @@ load_local_db() {
     # Copy previous DB to a TEMP FILE before rebuilding.
     local prev_tmp prev_count loaded
 
-    prev_tmp=$(mktemp) || { fail "Cannot create temp file for previous DB."; exit 1; }
+    prev_tmp=$(mktemp) || { 
+        log "[  FAILURE   ] Unable to create temp file for previous DB."
+        fail "Unable to create temp file for previous DB."
+        return 1
+    }
+
     cp "$CHECKSUM_DB" "$prev_tmp"
     PREVIOUS_DB_PATH="$prev_tmp"
 
@@ -1301,7 +1420,7 @@ load_local_db() {
         PREV_MD5_MAP["$path"]="$md5"
         PREV_META_MAP["$path"]="${size}"$'\t'"${mtime_epoch}"$'\t'"${mtime_iso}"
         loaded=$((loaded + 1))
-        if [[ "$VERBOSE" == "true" ]] && (( loaded % 5000 == 0 )); then
+        if [[ "$VERBOSE" == "true" ]] && (( loaded % 1000 == 0 )); then
             show_progress_bar "$loaded" "$prev_count" 0 "${MSG[label_load]}"
         fi
     done < <(jq -r '.entries[] | [.relative_path, .md5, (.size_bytes|tostring),
@@ -1315,7 +1434,7 @@ load_local_db() {
 
     # shellcheck disable=SC2059
     info "$(printf "${MSG[tmpl_prev_db_loaded]}" "$prev_count")"
-    log "[INFO] Previous DB loaded ($prev_count entries); current DB rebuilt."
+    log "[    INFO    ] Previous DB loaded ($prev_count entries); current DB rebuilt."
 
     # Final state visibility (once per phase, not per file)
     if [[ "$VERBOSE" == "true" ]]; then
@@ -1323,7 +1442,7 @@ load_local_db() {
         sleep 1         # brief final state visibility
     fi
 
-    log "[INFO] Loaded $loaded entries into lookup tables."
+    log "[    INFO    ] Loaded $loaded entries into lookup tables."
 }
 
 
@@ -1412,6 +1531,7 @@ upload_single_file() {
 }
 
 
+
 # ── Load the persistent queue into the in-memory map ──
 # Fresh map per run: leftover entries from a previous
 # source would fabricate retry candidates.
@@ -1437,7 +1557,7 @@ retry_queue_load() {
         RETRY_QUEUE["$path"]="${attempts}"$'\t'"${first_seen:-}"$'\t'"${last_error:-}"
     done < "$RETRY_FILE"
 
-    log "[INFO] Retry queue loaded: ${#RETRY_QUEUE[@]} entries."
+    log "[    INFO    ] Retry queue loaded: ${#RETRY_QUEUE[@]} entries."
 }
 
 
@@ -1456,7 +1576,11 @@ retry_queue_persist() {
         return 0
     fi
 
-    tmp_queue=$(mktemp) || { fail "Cannot create temp file for retry queue."; return 1; }
+    tmp_queue=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file for retry queue."
+        fail "Unable to create temp file for retry queue."
+        return 1
+    }
 
     for path in "${!RETRY_QUEUE[@]}"; do
         printf '%s\t%s\n' "$path" "${RETRY_QUEUE[$path]}"
@@ -1464,10 +1588,13 @@ retry_queue_persist() {
 
     if ! mv "$tmp_queue" "$RETRY_FILE"; then
         rm -f "$tmp_queue"
-        fail "Failed to persist retry queue."
+
+        log "[  FAILURE   ] Unable to persist retry queue."
+        fail "Unable to persist retry queue."
         return 1
     fi
 }
+
 
 
 # ── Record a failed upload attempt ──
@@ -1501,6 +1628,7 @@ retry_queue_record_failure() {
 }
 
 
+
 # ── Remove an entry after confirmed upload success ──
 
 retry_queue_remove() {
@@ -1530,6 +1658,7 @@ retry_queue_remove() {
 }
 
 
+
 # ── Eligibility check ──
 # an entry earns a retry attempt in this run only while its
 # cumulative counter is below the configured ceiling
@@ -1543,6 +1672,7 @@ retry_queue_eligible() {
     attempts="${record%%$'\t'*}"
     (( attempts < RETRY_MAX_ATTEMPTS ))
 }
+
 
 
 # ── Retry pre-pass ─────────────────────────────────────
@@ -1571,7 +1701,7 @@ retry_queue_process() {
     done < <(jq -r '.entries[] | [.relative_path, .local_path] | @tsv' \
                   "$NEW_DB_PATH" 2>/dev/null)
 
-    log "[INFO] Built local path lookup map for ${#LOCAL_PATH_MAP[@]} entries."
+    log "[    INFO    ] Built local path lookup map for ${#LOCAL_PATH_MAP[@]} entries."
 
     # ── Pre-count eligible entries for a stable bar denominator ──
     # The bar must not gain total mid-loop; eligibility is the only
@@ -1601,7 +1731,7 @@ retry_queue_process() {
         # Local file must still exist to retry
         local_path="${LOCAL_PATH_MAP[$path]:-}"
         if [[ -z "$local_path" ]] || [[ ! -f "$local_path" ]]; then
-            detail_warn "  Local file missing (removing from queue): $path"
+            detail_warn "Local file missing (removing from queue): $path"
             retry_queue_remove "$path"
             pending_after=$((pending_after + 1))
             continue
@@ -1610,14 +1740,14 @@ retry_queue_process() {
         # Eligibility check
         if ! retry_queue_eligible "$path"; then
             pending_after=$((pending_after + 1))
-            log "[INFO] Entry exhausted (attempts: $attempts): $path"
+            log "[    INFO    ] Entry exhausted (attempts: $attempts): $path"
             continue
         fi
 
         # Backoff between rounds: only when attempts > 1
         if (( attempts > 1 )); then
             local backoff=$(( RETRY_BACKOFF_BASE ** (attempts - 1) ))
-            log "[INFO] Backoff ${backoff}s before retry for: $path"
+            log "[    INFO    ] Backoff ${backoff}s before retry for: $path"
             sleep "$backoff"
         fi
 
@@ -1632,20 +1762,19 @@ retry_queue_process() {
                 CONFIRMED_THIS_RUN["$path"]=1
                 retry_queue_remove "$path"
                 UPLOAD_BYTES=$((UPLOAD_BYTES + $(stat -c%s "$local_path" 2>/dev/null || echo 0)))
-                detail_success "Retried successfully: $path"
-                log "[INFO] Retry success: $path"
+                detail_op "$TAG_UPLOADED" "$path"
                 ;;
             1)
                 err_msg=$(capture_cli_error)
+                log "[   ERROR    ] Retry failed for: $path (attempt $attempts) — $err_msg"
                 detail_fail "Retry failed: $path ($err_msg)"
-                log "[ERROR] Retry failed for: $path (attempt $attempts) — $err_msg"
                 ERROR_COUNT=$((ERROR_COUNT + 1))
                 retry_queue_record_failure "$path" "$err_msg"
                 ;;
             2)
                 err_msg="Remote directory creation failed"
-                detail_fail "Cannot create remote directory for: $path"
-                log "[ERROR] Remote directory creation failed for: $path"
+                log "[   ERROR    ] Remote directory creation failed for: $path"
+                detail_fail "Unable to create remote directory for: $path"
                 ERROR_COUNT=$((ERROR_COUNT + 1))
                 retry_queue_record_failure "$path" "$err_msg"
                 ;;
@@ -1667,7 +1796,7 @@ retry_queue_process() {
     # shellcheck disable=2034
     RETRY_PENDING_COUNT=${#RETRY_QUEUE[@]}
 
-    log "[INFO] Retry pre-pass: $eligible_count eligible, $RETRIED_COUNT succeeded, $pending_after still pending."
+    log "[    INFO    ] Retry pre-pass: $eligible_count eligible, $RETRIED_COUNT succeeded, $pending_after still pending."
 }
 
 
@@ -1689,7 +1818,7 @@ commit_db() {
     [[ -n "$NEW_DB_PATH" && -f "$NEW_DB_PATH" ]] || return 0
 
     if [[ "$DRY_RUN" == "true" ]]; then
-        log "[INFO] Dry-run: staging database discarded, checksum DB untouched."
+        log "[    INFO    ] Dry-run: staging database discarded, checksum DB untouched."
         rm -f "$NEW_DB_PATH"
         NEW_DB_PATH=""
         return 0
@@ -1697,9 +1826,10 @@ commit_db() {
 
     if mv "$NEW_DB_PATH" "$CHECKSUM_DB"; then
         NEW_DB_PATH=""
-        log "[INFO] Checksum database committed after confirmed phases."
+        log "[    INFO    ] Checksum database committed after confirmed phases."
     else
-        fail "Failed to commit checksum database (mv failed)."
+        log "[  FAILURE   ] Unable to commit checksum database."
+        fail "Unable to commit checksum database.."
         return 1
     fi
 }
@@ -1719,7 +1849,7 @@ compare_and_upload() {
     else
         info "${MSG[info_compare_upload]}"
     fi
-    log "[INFO] Upload comparison phase started."
+    log "[    INFO    ] Upload comparison phase started."
 
     local local_entries err_msg
     
@@ -1750,9 +1880,8 @@ compare_and_upload() {
 
         local local_path rel_path md5 fsize
 
-        local_path=$(echo "$entry" | jq -r '.local_path')
-        rel_path=$(echo "$entry" | jq -r '.relative_path')
-        md5=$(echo "$entry" | jq -r '.md5')
+        IFS=$'\t' read -r local_path rel_path md5 _ \
+            <<< "$(jq -r '[.local_path, .relative_path, .md5] | @tsv' <<< "$entry")"
 
         seen=$((seen + 1))
          
@@ -1760,7 +1889,7 @@ compare_and_upload() {
         seen_bytes=$((seen_bytes + fsize))
 
         if [[ ! -f "$local_path" ]]; then
-            detail_warn "  File no longer exists (skipping): $rel_path"
+            detail_warn "File no longer exists (skipping): $rel_path"
             WARNING_COUNT=$((WARNING_COUNT + 1))
         else
             local prev_md5
@@ -1773,18 +1902,8 @@ compare_and_upload() {
             if [[ -n "$prev_md5" && "$prev_md5" == "$md5" ]] \
                 || [[ -n "${CONFIRMED_THIS_RUN[$rel_path]:-}" ]]; then
                 SKIP_COUNT=$((SKIP_COUNT + 1))
-                detail_info "Skip (unchanged): $rel_path"
+                detail_op "$TAG_SKIPPED" "$rel_path" 
             else
-                local dir_part upload_dest
-                
-                dir_part=$(dirname "$rel_path")
-
-                if [[ "$dir_part" == "." ]]; then
-                    upload_dest="$REMOTE_BASE_PATH"
-                else
-                    upload_dest="${REMOTE_BASE_PATH}/${dir_part}"
-                fi
-
                 if [[ "$DRY_RUN" == "true" ]]; then
                     detail_info "[DRY-RUN] Would upload: $rel_path"
                     UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
@@ -1795,19 +1914,19 @@ compare_and_upload() {
                         0)
                             UPLOAD_COUNT=$((UPLOAD_COUNT + 1))
                             UPLOAD_BYTES=$((UPLOAD_BYTES + fsize))
-                            detail_success "  ${MSG[info_uploaded]} $rel_path"
+                            detail_op "$TAG_UPLOADED" "$rel_path"
                             ;;
                         1)
                             err_msg=$(capture_cli_error)
-                            detail_fail "  Upload failed: $rel_path ($err_msg)"
-                            log "[ERROR] Upload failed for: $local_path — $err_msg"
+                            log "[   ERROR    ] Upload failed for: $local_path — $err_msg"
+                            detail_fail "Upload failed: $rel_path ($err_msg)"
                             ERROR_COUNT=$((ERROR_COUNT + 1))
                             retry_queue_record_failure "$rel_path" "$err_msg"
                             ;;
                         2)
                             err_msg="Remote directory creation failed"
-                            detail_fail "  Cannot create remote directory for: $rel_path"
-                            log "[ERROR] Remote directory creation failed for: $rel_path"
+                            log "[   ERROR    ] Remote directory creation failed for: $rel_path"
+                            detail_fail "Unable to create remote directory for: $rel_path"
                             ERROR_COUNT=$((ERROR_COUNT + 1))
                             retry_queue_record_failure "$rel_path" "$err_msg"
                             ;;
@@ -1837,7 +1956,7 @@ compare_and_upload() {
 
     # shellcheck disable=SC2059
     info "$(printf "${MSG[tmpl_upload_phase]}" "$UPLOAD_COUNT" "$SKIP_COUNT" "$human_bytes")"
-    log "[INFO] Upload phase complete: $UPLOAD_COUNT uploaded, $SKIP_COUNT skipped, $UPLOAD_BYTES bytes."
+    log "[    INFO    ] Upload phase complete: $UPLOAD_COUNT uploaded, $SKIP_COUNT skipped, $UPLOAD_BYTES bytes."
 }
 
 
@@ -1850,23 +1969,40 @@ compare_and_upload() {
 
 compare_and_delete() {
     info "${MSG[info_compare_delete]}"
-    log "[INFO] Delete comparison phase started."
+    log "[    INFO    ] Delete comparison phase started."
 
     local prev_paths_file curr_paths_file orphan_count
+    local processed remote_path trash_target err_msg
 
-    prev_paths_file=$(mktemp) || { fail "Cannot create temp file."; return 1; }
+    prev_paths_file=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file."
+        fail "Unable to create temp file."
+        return 1
+    }
+
     jq -r '.entries[].relative_path' "$PREVIOUS_DB_PATH" 2>/dev/null \
         | sort -u > "$prev_paths_file"
 
-    curr_paths_file=$(mktemp) || { fail "Cannot create temp file."; \
-        rm -f "$prev_paths_file"; return 1; }
+    curr_paths_file=$(mktemp) || {
+        log "[  FAILURE   ] Unable to create temp file."
+        fail "Unable to create temp file."
+        rm -f "$prev_paths_file"
+        return 1
+    }
+
     jq -r '.entries[].relative_path' "$NEW_DB_PATH" 2>/dev/null \
         | sort -u > "$curr_paths_file"
 
     orphan_count=$(comm -23 "$prev_paths_file" "$curr_paths_file" | wc -l)
 
     if [[ "$orphan_count" -eq 0 ]]; then
-        info "${MSG[info_no_orphans]}"
+        info "${MSG[info_no_orphans]}";         log "[    INFO    ] No orphaned files to delete."
+        # Final redraw BEFORE the early return: the last phase may
+        # claim completion even when it had nothing to do (0/0).
+        if [[ "$VERBOSE" == "true" ]]; then
+            show_progress_bar 0 0 0 "${MSG[label_delete]}" true
+            sleep 1
+        fi
         rm -f "$prev_paths_file" "$curr_paths_file"
         return 0
     fi
@@ -1878,69 +2014,75 @@ compare_and_delete() {
         show_progress_bar 0 "$orphan_count" 0 "${MSG[label_delete]}"
     fi
 
-    local processed
-
     processed=0
-    
+
     while IFS= read -r prev_rel; do
         [[ -z "$prev_rel" ]] && continue
 
         processed=$((processed + 1))
 
-        local remote_path err_msg
-
         remote_path="${REMOTE_BASE_PATH}/${prev_rel}"
 
         if [[ "$DRY_RUN" == "true" ]]; then
-            detail_warn "[DRY-RUN] Would $DELETE_MODE: $remote_path"
-        else
+            # Simulation: the tag names the operation the run WOULD
+            # perform; the body flags it as a dry-run statement.
             if [[ "$DELETE_MODE" == "delete" ]]; then
-                # Permanent deletion requires Proton Drive's two-step:
-                # trash first, then delete by its trash path.
-                if ! proton-drive filesystem trash "$remote_path" \
-                    >/dev/null 2>"$TMP_ERR_FILE"; then
-                    err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
-                    err_msg="${err_msg:-unknown error}"
-                    detail_fail "  trash failed: $remote_path"
-                    log "[ERROR] trash (pre-delete step) failed for: $remote_path — $err_msg"
-                    ERROR_COUNT=$((ERROR_COUNT + 1))
-                    continue
-                fi
+                detail_op "$TAG_DELETED" "[DRY-RUN] Would permanently delete: $remote_path"
+            else
+                detail_op "$TAG_TRASHED" "[DRY-RUN] Would trash: $remote_path"
+            fi
+        elif [[ "$DELETE_MODE" == "delete" ]]; then
+            # Permanent deletion is Proton Drive's mandatory two-step:
+            # trash first, then purge the trashed node. There is no
+            # direct permanent delete — not in the CLI, not in the
+            # web app. A trashed node is addressed by NAME under
+            # /trash/ (pathless model; see FAQ for known limits).
+            trash_target="/trash/$(basename "$remote_path")"
 
-                local trash_target
-
-                trash_target="/trash/$(basename "$remote_path")"
-
+            if proton-drive filesystem trash "$remote_path" \
+                >/dev/null 2>"$TMP_ERR_FILE"; then
+                # Step 1 ok → purge the trashed node (step 2)
                 if proton-drive filesystem delete "$trash_target" \
                     >/dev/null 2>"$TMP_ERR_FILE"; then
                     DELETE_COUNT=$((DELETE_COUNT + 1))
-                    detail_success "  Permanently deleted (after trash): $remote_path"
-                    log "[INFO] Permanently deleted: $remote_path"
+                    detail_op "$TAG_DELETED" "$remote_path"
+                elif ! proton-drive filesystem info "$trash_target" &>/dev/null; then
+                    # Purge command failed, but the trashed node is
+                    # gone — already purged elsewhere. Nothing owed.
+                    detail_op "$TAG_SKIPPED" "Already absent in trash: $remote_path"
                 else
                     err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
                     err_msg="${err_msg:-unknown error}"
+                    log "[   ERROR    ] delete failed for: $remote_path — trash path was: $trash_target — $err_msg"
                     detail_fail "  delete failed: $trash_target (origin: $remote_path)"
-                    log "[ERROR] delete failed for: $remote_path — trash path was: $trash_target — $err_msg"
                     ERROR_COUNT=$((ERROR_COUNT + 1))
                 fi
+            elif ! proton-drive filesystem info "$remote_path" &>/dev/null; then
+                # Pre-step failed, but the node is absent anyway —
+                # benign, nothing to trash and nothing to purge.
+                detail_op "$TAG_SKIPPED" "Already absent on remote: $remote_path"
             else
-                # trash mode: single step, recoverable
-                if proton-drive filesystem trash "$remote_path" \
-                    >/dev/null 2>"$TMP_ERR_FILE"; then
-                    DELETE_COUNT=$((DELETE_COUNT + 1))
-                    detail_success "Trashed (orphan): $remote_path"
-                    log "[INFO] Trashed orphaned remote file: $remote_path"
-                elif ! proton-drive filesystem info "$remote_path" &>/dev/null; then
-                    # Node already absent on remote — benign, not an error
-                    detail_info "  Already absent on remote (skipping): $remote_path"
-                    log "[INFO] Orphan not present on remote: $remote_path"
-                else
-                    err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
-                    err_msg="${err_msg:-unknown error}"
-                    detail_fail "- trash failed: $remote_path"
-                    log "[ERROR] trash failed for: $remote_path — $err_msg"
-                    ERROR_COUNT=$((ERROR_COUNT + 1))
-                fi
+                err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
+                err_msg="${err_msg:-unknown error}"
+                log "[   ERROR    ] trash (pre-delete step) failed for: $remote_path — $err_msg"
+                detail_fail "  trash failed: $remote_path"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
+            fi
+        else
+            # trash mode: single step, recoverable
+            if proton-drive filesystem trash "$remote_path" \
+                >/dev/null 2>"$TMP_ERR_FILE"; then
+                DELETE_COUNT=$((DELETE_COUNT + 1))
+                detail_op "$TAG_TRASHED" "$remote_path"
+            elif ! proton-drive filesystem info "$remote_path" &>/dev/null; then
+                # Node already absent on remote — benign, not an error
+                detail_op "$TAG_SKIPPED" "Already absent on remote: $remote_path"
+            else
+                err_msg=$(head -3 "$TMP_ERR_FILE" 2>/dev/null | tr '\n' ' ')
+                err_msg="${err_msg:-unknown error}"
+                log "[   ERROR    ] trash failed for: $remote_path — $err_msg"
+                detail_fail "- trash failed: $remote_path"
+                ERROR_COUNT=$((ERROR_COUNT + 1))
             fi
         fi
 
@@ -1952,14 +2094,17 @@ compare_and_delete() {
         fi
     done < <(comm -23 "$prev_paths_file" "$curr_paths_file")
 
-    # Final state visibility (once per phase, not per file)
+    # Final state visibility (once per phase, not per file) —
+    # the ONLY redraw with final=true in the whole program:
+    # "…completed." is reserved for the end of the last phase.
     if [[ "$VERBOSE" == "true" ]]; then
-        show_progress_bar "$processed" "$orphan_count" 0 "${MSG[label_delete]}"
+        show_progress_bar "$processed" "$orphan_count" 0 "${MSG[label_delete]}" true
         sleep 1
     fi
 
     rm -f "$prev_paths_file" "$curr_paths_file"
 
+    log "[    INFO    ] Delete phase complete: $DELETE_COUNT file(s) $(delete_mode_past) (${DELETE_MODE} mode)."
     # shellcheck disable=SC2059
     info "$(printf "${MSG[tmpl_delete_phase]}" "$DELETE_COUNT" "${MSG[mode_verb_${DELETE_MODE}]}")"
 }
@@ -1982,6 +2127,7 @@ PROGRESS_START_EPOCH=0
 PROGRESS_PHASE_EPOCH=0
 
 
+
 # ───── Progress indicator bar ─────────────────────────────
 # Sets the per-phase reference time for ETA calculation.
 # Each phase (load, scan, upload, delete) anchors itself
@@ -1992,6 +2138,7 @@ PROGRESS_PHASE_EPOCH=0
 progress_anchor() {
     PROGRESS_PHASE_EPOCH=$(date +%s)
 }
+
 
 
 progress_init() {
@@ -2013,16 +2160,18 @@ progress_init() {
 }
 
 
+
 show_progress_bar() {
-    local current total bytes label
+    local current total bytes label final
     local term_width term_lines human_bytes stats stats_len label_len pct pct_len
     local bar_width filled bar j tail tail_raw tail_len
     local now_epoch elapsed rate remaining eta_epoch eta_str
-    
+
     current="$1"
     total="$2"
     bytes="${3:-0}"
     label="${4:-Processing}"
+    final="${5:-false}"
 
     if [[ ! -t 2 || "$PROGRESS_ENABLED" != "true" ]]; then
         return 0
@@ -2048,7 +2197,7 @@ show_progress_bar() {
     stats_len=${#stats}
     label_len=${#label}
     pct_len=4
-  
+
     now_epoch=$(date +%s)
     elapsed=0
 
@@ -2060,26 +2209,25 @@ show_progress_bar() {
     # Values longer than 20 columns are truncated by the progress bar
     # normalizer; keep all ETA-related strings ≤ 20 columns.
 
-    # Three-state tail, evaluated top to bottom:
-    #   1. COMPLETED — phase fully done, no estimate needed
-    #   2. ESTIMATE  — enough elapsed time for a meaningful rate
-    #   3. CALCULATING — too early to estimate honestly
+    # Four-state tail, evaluated top to bottom:
+    #   1. FINAL       — last phase's closing redraw, unconditional:
+    #                    only the end of compare_and_delete() may
+    #                    claim completion; passes "$processed/$orphan_count"
+    #                    so it also fires on the 0/0 no-orphans path
+    #   2. COMPLETED   — intermediate phase at 100 % → still busy
+    #                    ("Please wait..."), never "completed"
+    #   3. ESTIMATE    — enough elapsed time for a meaningful rate
+    #   4. CALCULATING — too early to estimate honestly
     #
     # Design rule: the ETA is DECORATION, never an error source.
     # Every guard below exists so that no pathological arithmetic
     # value ever reaches `date` — GNU date rejects such input
     # loudly ("invalid date '@inf'"), which surfaced as an error
     # message during the 2026-10-18 retry drain.
-
-    if (( current == total && total > 0 )); then
-        tail_raw="${MSG[info_eta_completed]}"
-
-    # Guard stack before any division happens:
-    #   elapsed >= 5              — a rate computed from < 5 s is noise
-    #                               (also implies e > 0 inside awk: no
-    #                               divide-by-zero, no inf/nan possible)
-    #   PROGRESS_PHASE_EPOCH > 0  — a phase anchor exists
-    #   current > 0               — at least one item processed
+    if [[ "$final" == "true" ]]; then
+        tail_raw="${MSG[bar_state_done]}"
+    elif (( current == total && total > 0 )); then
+        tail_raw="${MSG[bar_state_wait]}"
     elif (( elapsed >= 5 && PROGRESS_PHASE_EPOCH > 0 && current > 0 )); then
 
         # rate = items per second, computed by awk because bash has
@@ -2165,6 +2313,9 @@ progress_teardown() {
 # phases incremented — no re-analysis, no drift.
 
 print_summary() {
+    # Intentional blank line: separates the summary block from the
+    # last phase output line (console only). Removal collapses the
+    # completed-verdict directly onto the preceding phase line.
     echo ""
     if [[ "$ERROR_COUNT" -gt 0 ]]; then
         echo -e "${INDICATOR_WARN}${MSG[sum_completed_errors]}${FORMATTING_RESET}"
@@ -2176,17 +2327,43 @@ print_summary() {
     printf "  %s %s\n" "$(pad_to "${MSG[mode_verb_${DELETE_MODE}]}" "$PAD_SUMMARY_WIDTH")" "$DELETE_COUNT"
     if (( RETRIED_COUNT > 0 )); then
         # shellcheck disable=SC2059
-        info "$(printf '%s %s' \
-            "$(pad_to "${MSG[sum_retried]}" "$PAD_SUMMARY_WIDTH")" "$RETRIED_COUNT")"
+        printf "  %s %s\n" \
+            "$(pad_to "${MSG[sum_retried]}" "$PAD_SUMMARY_WIDTH")" "$RETRIED_COUNT"
     fi
     if (( ${#RETRY_QUEUE[@]} > 0 )); then
         # shellcheck disable=SC2059
-        info "$(printf '%s %s' \
-            "$(pad_to "${MSG[sum_retry_pending]}" "$PAD_SUMMARY_WIDTH")" "${#RETRY_QUEUE[@]}")"
+        printf "  %s %s\n" \
+            "$(pad_to "${MSG[sum_retry_pending]}" "$PAD_SUMMARY_WIDTH")" "${#RETRY_QUEUE[@]}"
     fi
     printf "  %s %s\n" "$(pad_to "${MSG[sum_errors]}" "$PAD_SUMMARY_WIDTH")" "$ERROR_COUNT"
     printf "  %s %s\n" "$(pad_to "${MSG[sum_warnings]}" "$PAD_SUMMARY_WIDTH")" "$WARNING_COUNT"
-    log "[SUMMARY] Uploaded: $UPLOAD_COUNT, Skipped: $SKIP_COUNT, ${DELETE_MODE^}d: $DELETE_COUNT, Errors: $ERROR_COUNT, Warnings: $WARNING_COUNT"
+
+    # ── Elapsed wall-clock time: the closing frame of the report ──
+    # Measures from RUN_START_EPOCH (top-level constant, set before
+    # the EXIT trap registration) to now — locale loading, config
+    # validation, lock and dependency checks included. The ${:-}
+    # guard keeps a trap firing before initialization from aborting
+    # under set -u; it degrades to 00:00:00 instead of crashing.
+    local now_epoch elapsed_seconds h m s
+    now_epoch=$(date +%s)
+    elapsed_seconds=$(( now_epoch - ${RUN_START_EPOCH:-$now_epoch} ))
+    h=$(( elapsed_seconds / 3600 ))
+    m=$(( (elapsed_seconds % 3600) / 60 ))
+    s=$(( elapsed_seconds % 60 ))
+    printf "  %s %02d:%02d:%02d\n" \
+        "$(pad_to "${MSG[sum_elapsed]}" "$PAD_SUMMARY_WIDTH")" "$h" "$m" "$s"
+
+    # Raw seconds appended to the existing SUMMARY log line — grep-
+    # and diff-friendly, consistent with the raw-bytes convention.
+    # No second [    INFO    ] elapsed line: one fact, one log entry.
+    local mode_past
+
+    # shellcheck disable=SC2034
+    case "$DELETE_MODE" in
+        delete)   mode_past="Deleted" ;;
+             *)   mode_past="Trashed" ;;
+    esac
+    log "[  SUMMARY   ] Uploaded: $UPLOAD_COUNT, Skipped: $SKIP_COUNT, $(delete_mode_past): $DELETE_COUNT, Errors: $ERROR_COUNT, Warnings: $WARNING_COUNT, Elapsed: ${elapsed_seconds}s."
 }
 
 
@@ -2201,6 +2378,15 @@ print_summary() {
 cleanup() {
     rm -rf "$CONFIG_DIR/tmp" 2>/dev/null || true
     rm -f "$TMP_ERR_FILE" 2>/dev/null || true
+
+    # Staging debris from build_local_db(): every documented failure
+    # path rm's these itself; this block is the second net for exits
+    # that slip between allocation and the next explicit rm
+    # (e.g. signals during the scan loop). No-ops on success runs.
+    [[ -n "${TMP_ENTRIES:-}" && -f "$TMP_ENTRIES" ]] && rm -f "$TMP_ENTRIES"
+    [[ -n "${TMP_EDGE:-}" && -f "$TMP_EDGE" ]] && rm -f "$TMP_EDGE"
+    [[ -n "${TMP_ENTRIES_JSON:-}" && -f "$TMP_ENTRIES_JSON" ]] && rm -f "$TMP_ENTRIES_JSON"
+    [[ -n "${TMP_OUTPUT:-}" && -f "$TMP_OUTPUT" ]] && rm -f "$TMP_OUTPUT"
 
     if [[ "$PREVIOUS_DB_PATH" != "/dev/null" && -f "$PREVIOUS_DB_PATH" ]]; then
         rm -f "$PREVIOUS_DB_PATH"
@@ -2219,14 +2405,14 @@ cleanup() {
     progress_teardown
 
     if [[ "$ERROR_COUNT" -gt 0 ]]; then
-        log "[WARN] Backup completed with $ERROR_COUNT errors."
+        log "[  WARNING   ] Backup completed with $ERROR_COUNT errors."
     elif [[ "$WARNING_COUNT" -gt 0 ]]; then
-        log "[INFO] Backup completed with $WARNING_COUNT warnings."
+        log "[    INFO    ] Backup completed with $WARNING_COUNT warnings."
     else
-        log "[SUCCESS] Backup completed cleanly."
+        log "[  SUCCESS   ] Backup completed cleanly."
     fi
 
-    log "[INFO] Cleanup finished. Session ended."
+    log "[    INFO    ] Cleanup finished. Session ended."
 }
 
 
@@ -2273,20 +2459,24 @@ main() {
     # The guards must be the ones reporting, not the shell.
 
     case "${DELETE_MODE:-}" in trash|delete) ;; *)
+        log "[  FAILURE   ] Invalid config: DELETE_MODE='${DELETE_MODE:-}' (expected: trash|delete)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "DELETE_MODE" "${DELETE_MODE:-}" "${MSG[fail_val_delete]}")"
         exit 1 ;; esac
 
     case "${UPLOAD_CONFLICT_STRATEGY:-}" in replace|skip) ;; *)
+        log "[  FAILURE   ] Invalid config: UPLOAD_CONFLICT_STRATEGY='${UPLOAD_CONFLICT_STRATEGY:-}' (expected: replace|skip)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "UPLOAD_CONFLICT_STRATEGY" "${UPLOAD_CONFLICT_STRATEGY:-}" "${MSG[fail_val_conflict]}")"
         exit 1 ;; esac
 
     if [[ ! "${CRON_INTERVAL_MINUTES:-}" =~ ^[1-9][0-9]*$ ]]; then
+        log "[  FAILURE   ] Invalid config: CRON_INTERVAL_MINUTES='${CRON_INTERVAL_MINUTES:-}' (must be a positive integer)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CRON_INTERVAL_MINUTES" "${CRON_INTERVAL_MINUTES:-}" "${MSG[fail_val_cron_positive]}")"
         exit 1
     elif (( CRON_INTERVAL_MINUTES > 60 && CRON_INTERVAL_MINUTES % 60 != 0 )); then
+        log "[  FAILURE   ] Invalid config: CRON_INTERVAL_MINUTES='$CRON_INTERVAL_MINUTES' (values above 60 must be divisible by 60)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CRON_INTERVAL_MINUTES" "$CRON_INTERVAL_MINUTES" "${MSG[fail_val_cron_divisible]}")"
         exit 1
@@ -2297,6 +2487,7 @@ main() {
     # archives (data loss) or keeps them all silently.
 
     if [[ ! "${KEEP_LOG_RUNS:-}" =~ ^[1-9][0-9]*$ ]]; then
+        log "[  FAILURE   ] Invalid config: KEEP_LOG_RUNS='${KEEP_LOG_RUNS:-}' (must be a positive integer)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "KEEP_LOG_RUNS" "${KEEP_LOG_RUNS:-}" "${MSG[fail_val_keep_log_runs]}")"
         exit 1
@@ -2309,12 +2500,14 @@ main() {
     # no sense for transient API errors).
 
     if [[ ! "${RETRY_MAX_ATTEMPTS:-}" =~ ^[1-9][0-9]*$ ]] || (( RETRY_MAX_ATTEMPTS > 10 )); then
+        log "[  FAILURE   ] Invalid config: RETRY_MAX_ATTEMPTS='${RETRY_MAX_ATTEMPTS:-}' (must be 1-10)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "RETRY_MAX_ATTEMPTS" "${RETRY_MAX_ATTEMPTS:-}" "${MSG[fail_val_retry_attempts]}")"
         exit 1
     fi
 
     if [[ ! "${RETRY_BACKOFF_BASE:-}" =~ ^[1-9][0-9]*$ ]]; then
+        log "[  FAILURE   ] Invalid config: RETRY_BACKOFF_BASE='${RETRY_BACKOFF_BASE:-}' (must be a positive integer)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "RETRY_BACKOFF_BASE" "${RETRY_BACKOFF_BASE:-}" "${MSG[fail_val_retry_backoff]}")"
         exit 1
@@ -2324,6 +2517,7 @@ main() {
     case "${CHECK_UPDATES:-}" in
         true|false) ;;
         *)
+            log "[  FAILURE   ] Invalid config: CHECK_UPDATES='${CHECK_UPDATES:-}' (expected: true|false)."
             # shellcheck disable=SC2059
             fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "CHECK_UPDATES" "${CHECK_UPDATES:-}" "${MSG[fail_val_bool]}")"
             exit 1
@@ -2334,12 +2528,14 @@ main() {
     # relative value would expand backups into unintended locations.
 
     if [[ -z "${SOURCE_BASE:-}" || "${SOURCE_BASE:-}" != /* ]]; then
+        log "[  FAILURE   ] Invalid config: SOURCE_BASE='${SOURCE_BASE:-}' (must be an absolute path)."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "SOURCE_BASE" "${SOURCE_BASE:-}" "${MSG[fail_val_source_base]}")"
         exit 1
     fi
 
     if [[ -z "${SOURCE_DIRS+x}" || ${#SOURCE_DIRS[@]} -eq 0 ]]; then
+        log "[  FAILURE   ] Invalid config: SOURCE_DIRS is empty or unset."
         # shellcheck disable=SC2059
         fail "$(printf "${MSG[tmpl_fail_invalid_value]}" "SOURCE_DIRS" "" "${MSG[fail_val_source_dirs]}")"
         exit 1
@@ -2396,15 +2592,14 @@ main() {
 
     acquire_lock            # mutex FIRST — before touching shared state
     check_dependencies      # fail fast, localized
-    archive_completed_runs  # bundle previous runs (pre-next-run)
-    prune_old_runs          # enforce retention
+    init_logging
     ensure_session || exit 1
 
-    info "${MSG[info_config_header]}"
-    printf "   %s %s\n" "$(pad_to "├ ${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
-    printf "   %s %s\n" "$(pad_to "├ ${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
-    printf "   %s %s\n" "$(pad_to "├ ${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
-    printf "   %s %s\n" "$(pad_to "╰ ${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
+    printf "${INDICATOR_INFO} ${FORMATTING_RESET}${MSG[info_config_header]}\n"
+    printf "  %s %s\n" "$(pad_to " ├ ${MSG[info_conflict_strategy]}" "$PAD_CONFIG_WIDTH")" "$UPLOAD_CONFLICT_STRATEGY"
+    printf "  %s %s\n" "$(pad_to " ├ ${MSG[info_delete_mode]}" "$PAD_CONFIG_WIDTH")" "$DELETE_MODE"
+    printf "  %s %s\n" "$(pad_to " ├ ${MSG[info_dry_run]}" "$PAD_CONFIG_WIDTH")" "$DRY_RUN"
+    printf "  %s %s\n" "$(pad_to " ╰ ${MSG[info_reset_db]}" "$PAD_CONFIG_WIDTH")" "$RESET_DB"
     
     load_local_db
 

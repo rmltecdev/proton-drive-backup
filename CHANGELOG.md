@@ -2,7 +2,69 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [1.2.1] - 2026-10-20
+## [v1.3.0] - 2026-11-15
+
+### Fixed
+- Upload skip logic never skipped unchanged files: a stray string
+  fragment in the previous-MD5 lookup defeated every comparison;
+  all files were re-uploaded on each run
+- Six "temp file" log entries were written on the SUCCESS path
+  (log companions sat outside the failure branches — now each
+  companion lives in the same block as its terminating fail)
+- Missing English log entry for the JSON conversion failure in
+  the database build phase
+- Staging files leaked to `/tmp` when the run aborted on a missing
+  source directory; staging paths are now global and covered by
+  the cleanup trap on every exit path
+- Log summary printed "Trashd" instead of "Trashed"; the past-tense
+  verb is now derived centrally via `delete_mode_past()`
+- Locale crash: a runtime variable embedded in a localized message
+  caused "unbound variable" under `set -u;` locale files carry
+  `printf` placeholders exclusively now
+- Localized messages duplicated themselves when a `printf` format
+  contained fewer `%s` placeholders than supplied arguments
+  (`fail_skip_missing_dir family`)
+- Smoke test reported live functions as dead: call-site detection
+  missed command substitutions and trap payloads (Section 8c)
+
+### Changed
+- Strict separation of localized console output (EN/DE/TH) and
+  English-only `runtime log`; console helpers are console-only,
+  forensic events carry explicit English log entries
+- Buffered logging: entries written before log initialization
+  (localization, configuration, lock) now land in the CURRENT
+  run's log instead of being archived with the previous run
+- Log escalation ladder: INFO / WARNING / ERROR / FAILURE —
+  ERROR = per-item failure (run continues), FAILURE = run
+  termination; redundant "Refusing to continue" prefixes removed
+- Progress bar: intermediate phases show "Please wait..." at
+  100%; "...completed." is reserved exclusively for the end of
+  the delete phase, including the 0/0 no-orphans case
+- Per-entry JSON parsing consolidated from three jq invocations
+  per file to one
+- Quiet mode suppresses progress and per-file output only;
+  banner, configuration, and summary remain visible; retry
+  counters are now part of the quiet-mode summary
+
+### Added
+- `init_logging()` with log buffering; archive and prune of previous
+  run logs run inside log initialization
+- MSG keys `bar_state_wait` / `bar_state_done`; `show_progress_bar`
+  accepts a "final" argument
+- Smoke test gates: console/log separation audit, corpse-function
+  audit, self-verifying discovery patterns (empty discovery is a
+  FAIL, never a silent pass)
+
+### Security
+- Missing-directory gate: a configured SOURCE_DIR that does not
+  exist aborts the run BEFORE scanning — silent skipping would
+  have fabricated deletions in the delete phase
+- Empty-scan gate: a scan returning zero files aborts in both
+  variants (previous database present / first run); there is
+  deliberately no override flag — intentional emptying is a
+  configuration edit, never a flag
+
+## [v1.2.1] - 2026-10-20
 
 ### Fixed
 - Removed hostile-filename entries from the retry queue reliably:
@@ -31,7 +93,7 @@ All notable changes to this project will be documented in this file. The format 
   notes; enables tamper detection and customer-side verification of
   binary integrity (M-22)  
 
-## [1.2.0] - 2026-10-07
+## [v1.2.0] - 2026-10-07
 
 ### Fixed
 
@@ -72,7 +134,7 @@ All notable changes to this project will be documented in this file. The format 
 - ETA estimation remains heuristic and fluctuates with file-size
   distribution
 
-## [1.1.0] - 2026-09-20
+## [v1.1.0] - 2026-09-20
 
 ### Added
 
@@ -92,7 +154,7 @@ All notable changes to this project will be documented in this file. The format 
 - Timezone offset in stored mtimes invalidated the fast path (date
   conversion without -u); mtime is now generated UTC-side by jq
 
-## [1.0.0] - 2026-09-09
+## [v1.0.0] - 2026-09-09
 
 ### Added
 

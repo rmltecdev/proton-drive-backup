@@ -19,7 +19,7 @@
 set -euo pipefail
 
 readonly PROGNAME="proton-drive-backup"
-readonly VERSION="1.0.0"  # keep in sync with main script (smoke test)
+readonly VERSION="1.2.1"  # keep in sync with main script (smoke test)
 
 # Determine script source directory (repo root)
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -63,6 +63,7 @@ check_dependencies() {
     check_command jq             || missing_required+=("jq")
     check_command md5sum         || missing_required+=("md5sum")
     check_command tar            || missing_required+=("tar")
+    check_command curl           || missing_required+=("curl")
 
     if [[ ${#missing_required[@]} -gt 0 ]]; then
         for cmd in "${missing_required[@]}"; do

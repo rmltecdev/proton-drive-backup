@@ -9,7 +9,7 @@
    ● Backup Configuration
      ├ Conflict strategy        replace
      ├ Delete mode              trash
-     ├ Dry run                  true
+     ├ Dry run                  false
      ╰ Reset checksum database  false
   ● Building lookup table from previous database...
   ● Building local checksum database:
@@ -19,8 +19,10 @@
     ▶ Scanning /home/martin/Projects...
     ▶ Scanning /home/martin/Templates...
     ▶ Scanning /home/martin/Videos...
-  ● Database built: 11764 files, 309GiB total.
+  ● Database built: 11764 files, 330GiB total.
+  ● Loaded previous database (11395 entries) for change detection.
   ● Comparing local files against previous backup state...
+  ●  Comparing local files against the previous backup state, uploading new and changed files...
  
   ▶ Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░  12% ETA 2026-10-20 18:30
 ```
@@ -79,9 +81,30 @@ Our design philosophy embraces this principle: network instability, mount failur
 
 ## Installation
 
-`./install.sh`
+**Download, verify, unpack:**
 
-The installer places the script on your PATH and copies the example configuration to `~/.config/proton-drive-backup/proton-drive-backup.cfg` on first installation. Existing configurations are never overwritten — updates never destroy user settings.  
+```bash
+    curl -L -o /tmp/pdb-v1.2.1.tar.gz \
+      https://github.com/rmltecdev/proton-drive-backup/releases/download/v1.2.1/proton-drive-backup-v1.2.1.tar.gz
+    sha512sum /tmp/pdb-v1.2.1.tar.gz     # compare with Checksums below
+    tar -xzf /tmp/pdb-v1.2.1.tar.gz -C /tmp
+    cd /tmp/proton-drive-backup-v1.2.1
+```
+
+**Install (PATH setup, config seeding, never overwrites existing configuration):**  
+
+```bash
+    ./install.sh
+```
+
+Installs into the user profile by design — no root privileges
+required. The archive contains script, localization files and
+example configuration. Detailed setup: see README.  
+
+## Checksums
+
+    SHA-512 (proton-drive-backup-v1.2.1.tar.gz):
+    <hash after building and downloading the asset>
 
 ## Configuration
 
@@ -91,7 +114,8 @@ All user decisions live in the config file above.
 
 | *Variable*                 | *Values*            | *Description*                       |
 |----------------------------|---------------------|-------------------------------------|
-| `SOURCE_BASE`              | path                | Base directory for relative entries |
+|---                          |---  |---    | 
+| `SOURCE_BASE`             | path                | Base directory for relative entries |
 | `SOURCE_DIRS`              | list of paths       | Directories to back up              |
 | `REMOTE_BASE_PATH`         | `/my-files/...`     | Remote target folder                |
 | `DELETE_MODE`              | `trash` \| `delete` | Orphan handling (default: `trash`)  |
@@ -133,7 +157,7 @@ Invoked without options, the tool shows a status menu.
 | `--dry-run`    | Display pending changes; no action taken            |
 | `--help`       | Man-page style help; quits with Q                   |
 | `--log`        | Open and follow the runtime log                     |
-| `--quiet`      | Minimal output for cron jobs (errors + summary)     |
+| `--quiet`      | Minimal output for unattended runs and cron jobs (errors + summary displayed)     |
 | `--reset-db`   | Discard and rebuild the checksum database           |
 | `--schedule`   | Install cron job. Interval from config; default: daily 1440-minute intervall; 300-minute interval suitable for high-frequency setups; weekly 10080-minute intervall recommended for multi-TiB datasets. |
 | `--unschedule` | Remove the cron job                                 |
@@ -149,20 +173,20 @@ Inspect an archive without extracting:
 
 ## Localization
 
-Language files ship next to the script (`proton-drive-backup.en`, `proton-drive-backup.de`, `proton-drive-backup.th`). Language selection follows your `LANG` environment variable. Column alignment requires a generated UTF-8 locale (e.g. `de_DE.UTF-8`) — see [FAQ](FAQ.md).  
+Language files ship next to the script (currently `proton-drive-backup.en`, `proton-drive-backup.de`, `proton-drive-backup.th`). Language selection follows your `LANG` environment variable. Column alignment requires a generated UTF-8 locale (e.g. `de_DE.UTF-8`) — see [FAQ](FAQ.md).  
 
 Contributing a translation: see [MESSAGES](MESSAGES.md).  
 
 ## Known Limitations
 
-* Renamed files appear as *delete* and *upload*; in trash mode they accumulate in the Proton Drive trash until it is cleared manually.  
-* Empty remote directories are not removed (CLI limitation).  
+* Renamed files appear as *delete* and *upload*; in trash mode they accumulate in the Proton Drive trash until it is cleared manually — CLI limitation, see [FAQ](FAQ.md).   
+* Empty remote directories are not removed — CLI limitation, see [FAQ](FAQ.md).   
 * MD5 comparison is content-based; it is not a cryptographic guarantee against deliberate collisions.  
 * Thumbnail uploads are skipped (`--skip-thumbnails`).  
 
 ## Security Notes
 
-* The tool only *reads* local files (hashing and uploading). Deletion happens exclusively on the remote side, for files you deleted locally yourself.  
+* Proton-Drive-Backup only *reads* local files (hashing and uploading). Deletion happens exclusively on the remote side, for files you deleted locally yourself.  
 * Credentials remain exclusively in the official Proton Drive CLI — this script never reads or stores them.  
 * The lock file prevents concurrent runs from interleaving operations.  
 * Review the locale and config files before use: they are sourced as Bash (documented in each file's header).  
@@ -201,5 +225,5 @@ Licensed under the MIT License — see [LICENSE](LICENSE) for details.
 
 ### Version
 
-Version: v1.2.1  
-Build Date: 2026-10-20  
+Version: v1.3.0  
+Build Date: 2026-11-15

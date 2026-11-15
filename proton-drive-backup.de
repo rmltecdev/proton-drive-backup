@@ -10,10 +10,11 @@
 # (not affiliated with Proton AG)
 # ──────────────────────────────────────────────────────────
 
-# ───── Status labels (indicator words) ────────────────────
+# ───── Status labels (progress indicators) ────────────────────
 MSG[info_eta_calculating_prefix]="ETA"
-MSG[info_eta_calculating]="berechne..."     # max. 20 fixed-width characters to avoid truncating value
-MSG[info_eta_completed]="...vollständig."   # max. 20 fixed-width characters to avoid truncating value
+MSG[info_eta_calculating]="Berechne..."     # max. 20 fixed-width characters to avoid truncating value
+MSG[bar_state_wait]="Bitte warten..."       # max. 20 fixed-width characters to avoid truncating value
+MSG[bar_state_done]="...vollständig."       # max. 20 fixed-width characters to avoid truncating value
 MSG[label_delete]="Lösche"
 MSG[label_files]="Dateien"
 MSG[label_load]="Lade"
@@ -23,8 +24,8 @@ MSG[label_scan]="Scanne"
 MSG[status_preparing]="Analysiere Daten..."
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="35"   # Inflate padding to align with longest string; adjust to language
-MSG[info_config_header]="Backup Konfiguration:"
+PAD_CONFIG_WIDTH="36"   # Inflate padding to align with longest string; adjust to language
+MSG[info_config_header]="Backup Konfiguration"
 MSG[info_conflict_strategy]="Konfliktstrategie"
 MSG[info_delete_mode]="Löschmodus"
 MSG[info_dry_run]="Testlauf"
@@ -48,20 +49,20 @@ MSG[fail_remote_create]="Remote-Ordner kann nicht erstellt werden:"
 
 # ───── Database build and load ────────────────────────────
 MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank"
-MSG[warn_skip_missing_dir]="Überspringe fehlendes Verzeichnis:"
-MSG[warn_file_unreadable]="Datei kann nicht gelesen werden:"
-MSG[warn_db_empty]="Keine Dateien in Quellverzeichnissen gefunden; prüfen Sie die Konfiguration in:"
 MSG[info_no_db_found]="Keine Prüfsummendatenbank gefunden; erstelle neu..."
-MSG[info_lookup_build]="Erstelle Änderungstabelle..."
+MSG[info_lookup_build]="Erstelle Änderungstabelle aus vorheriger Datenbank..."
+MSG[warn_file_unreadable]="Datei kann nicht gelesen werden:"
 MSG[warn_rebuild_db]="Erstelle Prüfsummendatenbank neu..."
-MSG[info_lookup_build]="Erstelle Nachschlagetabelle aus vorheriger Datenbank..."
+MSG[fail_skip_missing_dir]="Verzeichnis %s fehlt. Konfiguration prüfen in:\n   %s"
+MSG[fail_empty_scan_prev]="Der Scan ergab keine Dateien, obwohl bereits eine Datenbank vorhanden ist. Konfiguration prüfen in:\n   %s"
+MSG[fail_empty_scan_first]="Nichts zu sichern: Der Scan hat keine Dateien in den Quellverzeichnissen gefunden. Überprüfen Sie die Konfiguration in:\n   %s"
 MSG[opt_checksum]="Vollständige Prüfsummenprüfung erzwingen"
 
 # ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="Vergleich lokaler Dateien mit vorherigem Sicherungsstand..."
-MSG[info_compare_upload_new]="Lade alle Dateien hoch (kein vorheriger Backup-Zustand vorhanden)..."
+MSG[info_compare_upload]="Vergleiche lokale Dateien mit dem vorherigen Sicherungsstand; lade neue und geänderte Dateien hoch..."
+MSG[info_compare_upload_new]="Lade alle Dateien hoch (keine vorherige Datensicherung vorhanden)..."
 MSG[info_no_local_files]="Keine lokalen Dateien zu verarbeiten."
-MSG[info_uploaded]="Verarbeitet:"
 
 # ───── Delete phase ───────────────────────────────────────
 MSG[info_compare_delete]="Suche nach lokal gelöschten Dateien..."
@@ -102,21 +103,22 @@ MSG[info_version]="Skriptversion"
 MSG[info_build_date]="Skripterstellungsdatum"
 MSG[info_path]="Skriptpfad"
 MSG[info_cli_version]="Lade CLI-Informationen..."
-MSG[info_cli_not_installed]="Proton Drive CLI nicht installiert."
+MSG[fail_cli_not_installed]="Proton Drive CLI nicht installiert."
 MSG[label_update_available]="Update verfügbar"
-MSG[info_update_latest]="Du nutzt die neueste Version."
+MSG[info_update_latest]="Aktuelle Version installiert."
 MSG[help_release_url]="https://github.com/rmltecdev/proton-drive-backup/releases"
 
 # ───── Print Summary ──────────────────────────────────────
-PAD_SUMMARY_WIDTH="35"  # Inflate padding to align with longest string; adjust to language
+PAD_SUMMARY_WIDTH="32"  # Inflate padding to align with longest string; adjust to language
 MSG[sum_uploaded]="Hochgeladen (neu oder geändert)"
 MSG[sum_skipped]="Übersprungen (unverändert)"
 MSG[sum_errors]="Fehler"
 MSG[sum_warnings]="Warnungen"
-MSG[sum_completed_ok]="Datensicherung vollständig"
+MSG[sum_completed_ok]="Datensicherung vollständig und erfolgreich"
 MSG[sum_completed_errors]="Datensicherung mit Fehlern"
 MSG[sum_retried]="Erfolgreich wiederholt"
 MSG[sum_retry_pending]="Offen in Wiederholungswarteschlange"
+MSG[sum_elapsed]="Verstrichene Zeit"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'

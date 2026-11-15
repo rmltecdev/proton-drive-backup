@@ -50,6 +50,7 @@ by `test.sh` wherever technically checkable.
 | fail_val_keep_log_runs | Constant | — | Reason: KEEP_LOG_RUNS not a positive integer |
 | fail_val_source_base | Constant | — | Reason: SOURCE_BASE empty or not absolute |
 | fail_config_missing | Constant | — | Leading phrase; config path printed below by caller |
+| fail_skip_missing_dir | Constant | 2× %s | Runtime-derived missing directory path |
 | fail_config_hint | Template | 1× %s | Runtime-derived .cfg.example path, printed with fail_config_missing |
 | fail_config_syntax | Template | 1× %s | bash -n parser output header; legacy name kept — documented exception to rule 1 |
 
@@ -71,10 +72,12 @@ by `test.sh` wherever technically checkable.
 ## Key Catalog
 
 ### Status and progress labels
-`status_preparing` — progress bar boot message
+`status_preparing` — progress bar boot message,
 `label_scan`, `label_load`, `label_process`, `label_delete`,
-`label_retry`
-`info_eta_calculating`
+`label_retry`,
+`info_eta_calculating`,
+`bar_state_wait`,
+`bar_state_done`
 
 ### Initialization and configuration
 `info_config_header`, `info_conflict_strategy`, `info_delete_mode`,
@@ -89,21 +92,27 @@ by `test.sh` wherever technically checkable.
 `info_dry_create_folder`, `fail_remote_create`
 
 ### Database build and load
-`info_building_db`, `warn_skip_missing_dir`, `warn_file_unreadable`,
-`warn_db_empty`, `info_no_db_found`, `info_lookup_build`,
-`warn_rebuild_db`, `label_scan`,
-`label_load`, `label_process`,
+`info_building_db`, 
+`fail_empty_scan_prev`
+`fail_empty_scan_first`
+`fail_skip_missing_dir`, 
+`warn_file_unreadable`, 
+`info_no_db_found`, 
+`info_lookup_build`,
+`warn_rebuild_db`, 
+`label_scan`,
+`label_load`, 
+`label_process`,
 `label_delete`,
 `label_retry`
 
 ### Upload phase
-`info_compare_upload`, `info_no_local_files`, `info_uploaded`
+`info_compare_upload`, `info_no_local_files`
 
 ### Delete phase
 `info_compare_delete`, `info_no_orphans`,
 `mode_verb_trash`, `mode_verb_delete`
-   Dynamic family: `mode_verb_${DELETE_MODE}` — a new DELETE_MODE
-   value REQUIRES a new family member in every locale file.
+Dynamic family: `mode_verb_${DELETE_MODE}` — a new DELETE_MODE    value REQUIRES a new family member in every locale file.
 
 ### Lock file management
 `warn_lock_stale`
