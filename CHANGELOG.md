@@ -24,6 +24,7 @@ All notable changes to this project will be documented in this file. The format 
 - Localized messages duplicated themselves when a `printf` format
   contained fewer `%s` placeholders than supplied arguments
   (`fail_skip_missing_dir family`)
+- Cleaned-up redundant delete messages in `runtime.log`  
 - Smoke test reported live functions as dead: call-site detection
   missed command substitutions and trap payloads (Section 8c)
 
