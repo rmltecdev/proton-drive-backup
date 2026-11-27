@@ -24,7 +24,7 @@
   ● Loaded previous database (11395 entries) for change detection.
   ● Comparing local files against the previous backup state, uploading new and changed files...
  
-  ▶ Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░  12% ETA 2026-11-26 23:30
+  ▶ Processing 1460/11764 (32GiB) ▓▓░░░░░░░░░  12% ETA 2026-11-27 11:30
 ```
 
 #### Table of Contents
@@ -84,11 +84,11 @@ Our design philosophy embraces this principle: network instability, mount failur
 **Download, verify, unpack:**
 
 ```bash
-    curl -L -o /tmp/pdb-v1.2.1.tar.gz \
-      https://github.com/rmltecdev/proton-drive-backup/releases/download/v1.2.1/proton-drive-backup-v1.2.1.tar.gz
-    sha512sum /tmp/pdb-v1.2.1.tar.gz     # compare with Checksums below
-    tar -xzf /tmp/pdb-v1.2.1.tar.gz -C /tmp
-    cd /tmp/proton-drive-backup-v1.2.1
+    curl -L -o /tmp/pdb-v1.4.0.tar.gz \
+      https://github.com/rmltecdev/proton-drive-backup/releases/download/v1.4.0/proton-drive-backup-v1.4.0.tar.gz
+    sha512sum /tmp/pdb-v1.4.0.tar.gz     # compare with Checksums below
+    tar -xzf /tmp/pdb-v1.4.0.tar.gz -C /tmp
+    cd /tmp/proton-drive-backup-v1.4.0
 ```
 
 **Install (PATH setup, config seeding, never overwrites existing configuration):**  
@@ -103,7 +103,7 @@ example configuration. Detailed setup: see README.
 
 ## Checksums
 
-    SHA-512 (proton-drive-backup-v1.2.1.tar.gz):
+    SHA-512 (proton-drive-backup-v1.4.0.tar.gz):
     <hash after building and downloading the asset>
 
 ## Configuration
@@ -114,8 +114,7 @@ All user decisions live in the config file above.
 
 | *Variable*                 | *Values*            | *Description*                       |
 |----------------------------|---------------------|-------------------------------------|
-|---                          |---  |---    | 
-| `SOURCE_BASE`             | path                | Base directory for relative entries |
+| `SOURCE_BASE`              | path                | Base directory for relative entries |
 | `SOURCE_DIRS`              | list of paths       | Directories to back up              |
 | `REMOTE_BASE_PATH`         | `/my-files/...`     | Remote target folder                |
 | `DELETE_MODE`              | `trash` \| `delete` | Orphan handling (default: `trash`)  |
