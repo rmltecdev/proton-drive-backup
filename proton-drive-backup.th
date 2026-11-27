@@ -19,7 +19,7 @@ MSG[label_delete]="กำลังลบอย่าง"
 MSG[label_files]="ไฟล์"
 MSG[label_load]="กำลังโหลด"
 MSG[label_process]="กำลังประมวลผล"
-MSG[label_retry]="กำลังลองใหม่…"
+MSG[label_retry]="กำลังลองใหม่"
 MSG[label_scan]="กำลังสแกน"
 MSG[status_preparing]="กำลังวิเคราะห์ข้อมูล…"
 
@@ -33,7 +33,8 @@ MSG[info_reset_db]="รีเซ็ตฐานข้อมูลเช็คซ
 MSG[quiet_notice]="การสำรองข้อมูลทำงานในพื้นหลัง ติดตามความคืบหน้ากับ"
 
 # ───── Dependencies and session ───────────────────────────
-MSG[fail_dep_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
+MSG[fail_deps_missing]="ไม่พบการอ้างอิงที่จำเป็น:"
+MSG[info_deps_check]="กำลังตรวจสอบการอ้างอิง..."
 MSG[info_deps_ok]="การพึ่งพาทั้งหมดครบถ้วน"
 MSG[info_session_check]="กำลังตรวจสอบเซสชันการตรวจสอบสิทธิ์…"
 MSG[info_session_valid]="เซสชั่นถูกต้อง"
@@ -48,7 +49,7 @@ MSG[info_dry_create_folder]="จะสร้างโฟลเดอร์"
 MSG[fail_remote_create]="ไม่สามารถสร้างโฟลเดอร์ระยะไกลได้"
 
 # ───── Database build and load ────────────────────────────
-MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง"
+MSG[info_building_db]="กำลังสร้างฐานข้อมูลเช็คซัมในเครื่อง…"
 MSG[info_no_db_found]="ไม่พบฐานข้อมูลเช็คซัม กำลังสร้างใหม่…"
 MSG[info_lookup_build]="กำลังสร้างระบบตรวจจับการเปลี่ยนแปลงจากฐานข้อมูลเดิม…"
 MSG[warn_file_unreadable]="ไม่สามารถอ่านไฟล์"
@@ -60,7 +61,7 @@ MSG[opt_checksum]="บังคับตรวจสอบเช็คซัม�
 
 # ───── Upload phase ───────────────────────────────────────
 MSG[info_compare_upload]="กำลังเปรียบเทียบไฟล์ในเครื่องกับสถานะการสำรองข้อมูลครั้งก่อน พร้อมทั้งอัปโหลดไฟล์ใหม่และไฟล์ที่มีการเปลี่ยนแปลง…"
-MSG[info_compare_upload_new]="อัปโหลดไฟล์ทั้งหมด (ไม่พบสถานะแบ็กอัพก่อนหน้า)…"
+MSG[info_compare_upload_new]="ไม่พบสถานะแบ็กอัพก่อนหน้า อัปโหลดไฟล์ทั้งหมด…"
 MSG[info_no_local_files]="ไม่มีไฟล์ในเครื่องที่จะประมวลผล"
 
 # ───── Delete phase ───────────────────────────────────────
@@ -83,6 +84,7 @@ MSG[info_log_opening]="บันทึกการเปิด"
 MSG[info_log_archive_opening]="กำลังเปิดบันทึกที่เก็บถาวรจาก"
 MSG[info_log_follow_hint]="กด Ctrl+C เพื่อขัดจังหวะการติดตาม กด Q เพื่อออก"
 MSG[warn_archive_failed]="ไม่สามารถเก็บถาวรบันทึกการรันได้ ปล่อยให้ไฟล์ธรรมดาอยู่กับที่"
+MSG[warn_log_unavailable]="ไม่พบบันทึกรันไทม์ — ข้ามการตรวจสอบ"
 
 # ───── Cron management ────────────────────────────────────
 MSG[cron_manager]="ผู้จัดการครอนจ็อบ"
@@ -118,6 +120,7 @@ MSG[sum_completed_errors]="การสำรองข้อมูลเสร�
 MSG[sum_retried]="ลองใหม่สำเร็จ"
 MSG[sum_retry_pending]="รออยู่ในคิวลองใหม่"
 MSG[sum_elapsed]="เวลาที่ผ่านไป"
+MSG[warn_counter_drift]="ข้อมูลในบันทึกไม่ตรงกับตัวนับ — ดู runtime.log"
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
@@ -210,25 +213,31 @@ MSG[opt_version]="แสดงข้อมูลเวอร์ชัน"
 MSG[fail_config_missing]="ไม่พบไฟล์การตั้งค่า:"
 MSG[fail_config_hint]="คัดลอกไฟล์ตั้งค่าตัวอย่างที่ %s แล้วปรับแก้ให้เหมาะสม"
 MSG[fail_config_syntax]="พบข้อผิดพลาดไวยากรณ์ในไฟล์กำหนดค่า: %s"
-MSG[fail_val_delete]="trash หรือ delete"
-MSG[fail_val_conflict]="replace หรือ skip"
+MSG[fail_staging_db_convert]="ไม่สามารถสร้างฐานข้อมูลชั่วคราวได้"
+MSG[fail_staging_db_move]="ไม่สามารถย้ายฐานข้อมูลชั่วคราวได้"
+MSG[fail_retry_persist]="ไม่สามารถบันทึกคิวการลองใหม่ได้" 
+MSG[fail_temp_create]="ไม่สามารถสร้างไฟล์ชั่วคราวได้"
+MSG[fail_val_check_update]="'true' หรือ 'false'"
+MSG[fail_val_delete]="'trash' หรือ 'delete'"
+MSG[fail_val_conflict]="'replace' หรือ 'skip'"
 MSG[fail_val_cron_positive]="จำนวนเต็มบวก"
 MSG[fail_val_cron_divisible]="1-60 หรือหารด้วย 60 ลงตัว"
+MSG[fail_val_remote_base]="พาธสัมบูรณ์ภายใน /my-files โดยไม่มี / ท้ายสุดและไม่มีอักขระควบคุม"
 MSG[fail_val_source_dirs]="ไดเรกทอรีต้นทางอย่างน้อยหนึ่งรายการ"
 MSG[fail_val_keep_log_runs]="จำนวนเต็มตั้งแต่ 1 ขึ้นไป"
-MSG[fail_val_source_base]="พาธแบบสัมบูรณ์ที่ขึ้นต้นด้วย /"
+MSG[fail_val_source_base]="\$HOME หรือพาธแบบสัมบูรณ์ที่ขึ้นต้นด้วย /"
 MSG[fail_val_retry_attempts]="1-10"
-MSG[fail_val_retry_backoff]="จำนวนเต็มนบวก"
+MSG[fail_val_retry_backoff]="จำนวนเต็มนวก"
 
 # ───── Composite templates (printf, %s placeholders) ──────
-MSG[tmpl_db_built]="ฐานข้อมูลที่สร้าง: %s ไฟล์ รวม %s"
+MSG[tmpl_db_built]="ฐานข้อมูลภายในที่สร้าง: %s ไฟล์ รวม %s"
 MSG[tmpl_prev_db_loaded]="โหลดฐานข้อมูลก่อนหน้า (%s รายการ) เพื่อการตรวจจับการเปลี่ยนแปลง"
-MSG[tmpl_upload_phase]="เฟสการอัพโหลด %s อัพโหลดแล้ว, %s ข้ามไปแล้ว, %s"
+MSG[tmpl_upload_phase]="ขั้นตอนการเปรียบเทียบและอัปโหลดเสร็จสิ้นแล้ว ไฟล์อัปโหลด %s ไฟล์ข้ามไป %s รวม %s"
 MSG[tmpl_delete_phase]="ลบเฟส %s %s"
 MSG[tmpl_lock_running]="อินสแตนซ์อื่นกำลังทำงานอยู่ (PID: %s)"
 MSG[tmpl_cron_interval]="การสำรองข้อมูลจะทำงานทุกๆ %s นาทีในโหมดเงียบ"
 MSG[tmpl_usage_hint]="เรียกใช้ '%s --help' เพื่อดูตัวเลือกที่มี"
 MSG[tmpl_menu_invoke]="เรียกใช้ %s ด้วยหนึ่งในตัวเลือกเหล่านี้"
-MSG[tmpl_fail_invalid_value]="ค่าไม่ถูกต้องสำหรับ %s: '%s' (ค่าที่อนุญาต: %s)"
+MSG[tmpl_fail_invalid_value]="ค่าของ %s: '%s' ไม่ถูกต้อง; คาดหมาย: %s"
 MSG[tmpl_update_available]="  %s v%s → v%s; ดาวน์โหลดจาก:\n"
 MSG[tmpl_release_url]="  %s %s\n"

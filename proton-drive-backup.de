@@ -19,7 +19,7 @@ MSG[label_delete]="Lösche"
 MSG[label_files]="Dateien"
 MSG[label_load]="Lade"
 MSG[label_process]="Verarbeite"
-MSG[label_retry]="Wiederhole..."
+MSG[label_retry]="Wiederhole"
 MSG[label_scan]="Scanne"
 MSG[status_preparing]="Analysiere Daten..."
 
@@ -33,9 +33,10 @@ MSG[info_reset_db]="Prüfsummendatenbank zurücksetzen"
 MSG[quiet_notice]="Datensicherung läuft im Hintergrund. Verfolgen Sie den Fortschritt mit:"
 
 # ───── Dependencies and session ───────────────────────────
-MSG[fail_dep_missing]="Erforderliche Abhängigkeiten nicht gefunden:"
+MSG[fail_deps_missing]="Erforderliche Abhängigkeiten nicht gefunden:"
+MSG[info_deps_check]="Prüfe Abhängigkeiten..."
 MSG[info_deps_ok]="Alle Abhängigkeiten erfüllt."
-MSG[info_session_check]="Überprüfung der Sitzungsauthentifizierung..."
+MSG[info_session_check]="Prüfe Sitzungsauthentifizierung..."
 MSG[info_session_valid]="Sitzung ist gültig."
 MSG[info_auth_required]="Authentifizierung erforderlich."
 MSG[warn_dry_run_auth]="Authentifizierung im Testlaufmodus gescheitert. Datensicherung übersprungen."
@@ -48,7 +49,7 @@ MSG[info_dry_create_folder]="Würde Ordner erstellen:"
 MSG[fail_remote_create]="Remote-Ordner kann nicht erstellt werden:"
 
 # ───── Database build and load ────────────────────────────
-MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank"
+MSG[info_building_db]="Aufbau lokaler Prüfsummendatenbank..."
 MSG[info_no_db_found]="Keine Prüfsummendatenbank gefunden; erstelle neu..."
 MSG[info_lookup_build]="Erstelle Änderungstabelle aus vorheriger Datenbank..."
 MSG[warn_file_unreadable]="Datei kann nicht gelesen werden:"
@@ -59,9 +60,8 @@ MSG[fail_empty_scan_first]="Nichts zu sichern: Der Scan hat keine Dateien in den
 MSG[opt_checksum]="Vollständige Prüfsummenprüfung erzwingen"
 
 # ───── Upload phase ───────────────────────────────────────
-MSG[info_compare_upload]="Vergleich lokaler Dateien mit vorherigem Sicherungsstand..."
 MSG[info_compare_upload]="Vergleiche lokale Dateien mit dem vorherigen Sicherungsstand; lade neue und geänderte Dateien hoch..."
-MSG[info_compare_upload_new]="Lade alle Dateien hoch (keine vorherige Datensicherung vorhanden)..."
+MSG[info_compare_upload_new]="Keine vorherige Datensicherung vorhanden; lade alle Dateien hoch..."
 MSG[info_no_local_files]="Keine lokalen Dateien zu verarbeiten."
 
 # ───── Delete phase ───────────────────────────────────────
@@ -84,13 +84,14 @@ MSG[info_log_opening]="Öffne Protokoll:"
 MSG[info_log_archive_opening]="Archiviertes Protokoll wird geöffnet von:"
 MSG[info_log_follow_hint]="Drücken Sie Strg+C + Q zum Beenden."
 MSG[warn_archive_failed]="Protokolldateien konnten nicht archiviert werden; Originaldateien bleiben erhalten."
+MSG[warn_log_unavailable]="Runtime-Log nicht verfügbar — Abgleich übersprungen."
 
 # ───── Cron management ────────────────────────────────────
 MSG[cron_manager]="Cronjob Manager"
 MSG[cron_scheduled]="Cronjob erfolgreich geplant:"
 MSG[cron_already]="Cronjob bereits geplant für:"
 MSG[cron_removed]="Cronjob entfernt."
-MSG[cron_none_found]="Kein Cronjob gefunden für:"
+MSG[cron_none_found]="Keinen Cronjob gefunden für:"
 MSG[cron_existing]="Vorhandener Eintrag:"
 MSG[cron_logs_written]="Protokolle werden geschrieben in:"
 
@@ -119,6 +120,7 @@ MSG[sum_completed_errors]="Datensicherung mit Fehlern"
 MSG[sum_retried]="Erfolgreich wiederholt"
 MSG[sum_retry_pending]="Offen in Wiederholungswarteschlange"
 MSG[sum_elapsed]="Verstrichene Zeit"
+MSG[warn_counter_drift]="Diskrepanz zwischen Protokoll und Zählern — siehe runtime.log."
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
@@ -158,7 +160,7 @@ USAGE
                       Konsolenausgabe: nur Fehler und Zusammenfassung.
         --reset-db    Prüfsummendatenbank zurücksetzen und neu erstellen
         --schedule    Zeitgesteuerte Ausführung der Datensicherung planen
-                      (alle %s Minuten).
+                      (Cronjob alle %s Minuten im stillen Modus ausführen).
         --unschedule  Cronjob entfernen.
         --verbose     Führe Datensicherung mit Fortschrittsanzeige aus.
         --version     Versionsinformationen anzeigen.
@@ -218,25 +220,31 @@ MSG[opt_version]="Versionsinformationen anzeigen"
 MSG[fail_config_missing]="Konfigurationsdatei nicht gefunden:"
 MSG[fail_config_hint]="Kopieren Sie die Beispielkonfiguration unter %s und passen Sie sie an."
 MSG[fail_config_syntax]="Syntaxfehler in der Konfigurationsdatei: %s"
-MSG[fail_val_delete]="trash oder delete"
-MSG[fail_val_conflict]="replace oder skip"
+MSG[fail_staging_db_convert]="Staging-Datenbank konnte nicht erstellt werden."
+MSG[fail_staging_db_move]="Staging-Datenbank konnte nicht verschoben werden."
+MSG[fail_retry_persist]="Wiederholungswarteschlange konnte nicht gespeichert werden."
+MSG[fail_temp_create]="Temporäre Datei konnte nicht erstellt werden."
+MSG[fail_val_check_update]="'true' oder 'false'"
+MSG[fail_val_delete]="'trash' oder 'delete'"
+MSG[fail_val_conflict]="'replace' oder 'skip'"
 MSG[fail_val_cron_positive]="eine positive Ganzzahl"
 MSG[fail_val_cron_divisible]="1-60 oder ein Vielfaches von 60"
+MSG[fail_val_remote_base]="ein absoluter Pfad innerhalb von /my-files, ohne Slash am Ende und ohne Steuerzeichen"
 MSG[fail_val_source_dirs]="mindestens ein Quellverzeichnis"
 MSG[fail_val_keep_log_runs]="eine ganze Zahl von 1 oder größer"
-MSG[fail_val_source_base]="ein absoluter Pfad beginnend mit /"
+MSG[fail_val_source_base]="\$HOME, oder ein absoluter Pfad beginnend mit /"
 MSG[fail_val_retry_attempts]="1-10"
 MSG[fail_val_retry_backoff]="eine positive Ganzzahl"
 
 # ───── Composite templates (printf, %s placeholders) ──────
-MSG[tmpl_db_built]="Datenbank erstellt: %s Dateien, %s gesamt."
+MSG[tmpl_db_built]="Lokale Datenbank erstellt: %s Dateien, %s gesamt."
 MSG[tmpl_prev_db_loaded]="Vorherige Datenbank (%s Einträge) zur Änderungsermittlung geladen."
-MSG[tmpl_upload_phase]="Upload-Phase: %s hochgeladen, %s übersprungen, %s."
+MSG[tmpl_upload_phase]="Vergleichen und Hochladen vollständig: %s hochgeladen, %s übersprungen, %s gesamt."
 MSG[tmpl_delete_phase]="Löschphase: %s %s."
 MSG[tmpl_lock_running]="Eine andere Instanz läuft bereits. (PID: %s)."
 MSG[tmpl_cron_interval]="Datensicherung wird alle %s Minuten im stillen Modus ausgeführt."
 MSG[tmpl_usage_hint]="Führen Sie '%s --help' aus, um verfügbare Optionen anzuzeigen."
 MSG[tmpl_menu_invoke]="Rufen Sie %s mit einer dieser Optionen auf:"
-MSG[tmpl_fail_invalid_value]="Ungültiger Wert für %s: '%s' (erlaubt: %s)."
+MSG[tmpl_fail_invalid_value]="Ungültiger Wert für %s: '%s'; erwartet: %s."
 MSG[tmpl_update_available]="  %s v%s → v%s; herunterladen von:\n"
 MSG[tmpl_release_url]="  %s %s\n"

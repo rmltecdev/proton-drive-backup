@@ -2,68 +2,71 @@
 
 All notable changes to this project will be documented in this file. The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [v1.4.0] - 2026-11-27
+
+### Fixed
+
+- Duplicate `TMP_ENTRIES` allocation removed: a stale top-level block orphaned a temp file outside every cleanup path.  
+- `TMP_ENTRIES_JSON` derived path moved next to its allocation: previously it resolved at script start to a literal `.json` in the working directory.
+- Unguarded `jq` wrapper calls in `build_local_db`: a `jq` failure could promote an empty staging database into the commit path.
+- Undefined MSG key `fail_val_bool` produced an empty error message for invalid `CHECK_UPDATES` values.
+- Lock-conflict `FAILURE` entry was lost in the log buffer before it ever reached a file.
+
+### Changed
+
+- **Log label interior width reduced from 12 to 10 characters and the `[ PROCESSING ]` tag renamed to `[ SCANNING ]` — breaking for external log parsers; adjust parsing rules accordingly.**
+- Session validation, login, and database build/load completions now report at success level on the console (formerly info).
+- Log lines now precede their console counterparts.
+- Invalid-value errors now read "expected:" followed by the quoted value domain; all `fail_val_*` keys unified in nominal-phrase style.
+- MSG key fail_val_bool renamed to `fail_val_check_update`.
+- Progress-bar redraw throttle tightened (5000 to 1000) in the previous-database load loop.
+- Lowercase delete-mode participle and lowercase summary fields in the log.
+- README: Known Limitations expanded — remote modifications are not reflected locally; replacing a file counts as delete plus upload regardless of the delete mode.
+
+### Added
+
+- Release packaging script `make-release.sh`: builds the tarball exclusively from the tagged commit; default run is a dry run producing tarball and release notes, `--publish` creates the GitHub release with asset and notes in one step.
+- `REMOTE_BASE_PATH` validation: absolute path inside `/my-files`, no trailing slash, no control characters.
+- Counter/log reconciliation in `cleanup()`: a "completed cleanly" summary can no longer coexist with `ERROR`/`FAILURE` tags in `runtime.log` — counters are upgraded from the forensic record.
+- Emergency log buffer flush: lock-conflict rejections are now durably recorded in `runtime.log` of the running instance.
+- Temp-file cleanup registry: function-local `temp` files are registered at allocation time and swept by the EXIT trap, surviving signals mid-function.
+- Smoke test gates: `%s` placeholder parity across all locales and a script-reference gate asserting every MSG key used by the script resolves in every locale.
+- Localization coverage for previously hardcoded console messages (temp file creation, retry queue persistence, staging database operations).
+
 ## [v1.3.0] - 2026-11-15
 
 ### Fixed
-- Upload skip logic never skipped unchanged files: a stray string
-  fragment in the previous-MD5 lookup defeated every comparison;
-  all files were re-uploaded on each run
-- Six "temp file" log entries were written on the SUCCESS path
-  (log companions sat outside the failure branches — now each
-  companion lives in the same block as its terminating fail)
-- Missing English log entry for the JSON conversion failure in
-  the database build phase
-- Staging files leaked to `/tmp` when the run aborted on a missing
-  source directory; staging paths are now global and covered by
-  the cleanup trap on every exit path
-- Log summary printed "Trashd" instead of "Trashed"; the past-tense
-  verb is now derived centrally via `delete_mode_past()`
-- Locale crash: a runtime variable embedded in a localized message
-  caused "unbound variable" under `set -u;` locale files carry
-  `printf` placeholders exclusively now
-- Localized messages duplicated themselves when a `printf` format
-  contained fewer `%s` placeholders than supplied arguments
-  (`fail_skip_missing_dir family`)
-- Cleaned-up redundant delete messages in `runtime.log`  
-- Smoke test reported live functions as dead: call-site detection
-  missed command substitutions and trap payloads (Section 8c)
+
+- Upload skip logic never skipped unchanged files: a stray string fragment in the previous-MD5 lookup defeated every comparison; all files were re-uploaded on each run.
+- Six "temp file" log entries were written on the SUCCESS path (log companions sat outside the failure branches — now each companion lives in the same block as its terminating fail).
+- Missing English log entry for the JSON conversion failure in the database build phase.
+- Staging files leaked to `/tmp` when the run aborted on a missing source directory; staging paths are now global and covered by the cleanup trap on every exit path.
+- Log summary printed "Trashd" instead of "Trashed"; the past-tense verb is now derived centrally via `delete_mode_past()`.
+- Locale crash: a runtime variable embedded in a localized message caused "unbound variable" under `set -u;` locale files carry `printf` placeholders exclusively now.
+- Localized messages duplicated themselves when a `printf` format contained fewer `%s` placeholders than supplied arguments (`fail_skip_missing_dir` family).
+- Cleaned-up redundant delete messages in `runtime.log`.  
+- Smoke test reported live functions as dead: call-site detection missed command substitutions and trap payloads (Section 8c).
 
 ### Changed
-- Strict separation of localized console output (EN/DE/TH) and
-  English-only `runtime log`; console helpers are console-only,
-  forensic events carry explicit English log entries
-- Buffered logging: entries written before log initialization
-  (localization, configuration, lock) now land in the CURRENT
-  run's log instead of being archived with the previous run
-- Log escalation ladder: INFO / WARNING / ERROR / FAILURE —
-  ERROR = per-item failure (run continues), FAILURE = run
-  termination; redundant "Refusing to continue" prefixes removed
-- Progress bar: intermediate phases show "Please wait..." at
-  100%; "...completed." is reserved exclusively for the end of
-  the delete phase, including the 0/0 no-orphans case
-- Per-entry JSON parsing consolidated from three jq invocations
-  per file to one
-- Quiet mode suppresses progress and per-file output only;
-  banner, configuration, and summary remain visible; retry
-  counters are now part of the quiet-mode summary
+
+- Strict separation of localized console output (EN/DE/TH) and English-only `runtime log`; console helpers are console-only, forensic events carry explicit English log entries.
+- Buffered logging: entries written before log initialization (localization, configuration, lock) now land in the CURRENT run's log instead of being archived with the previous run.
+- Log escalation ladder: INFO / WARNING / ERROR / FAILURE — ERROR = per-item failure (run continues), FAILURE = run termination; redundant "Refusing to continue" prefixes removed.
+- Progress bar: intermediate phases show "Please wait..." at 100%; "...completed." is reserved exclusively for the end of the delete phase, including the 0/0 no-orphans case.
+- Per-entry JSON parsing consolidated from three jq invocations per file to one.
+- Quiet mode suppresses progress and per-file output only; banner, configuration, and summary remain visible; retry counters are now part of the quiet-mode summary.
 
 ### Added
+
 - `init_logging()` with log buffering; archive and prune of previous
-  run logs run inside log initialization
-- MSG keys `bar_state_wait` / `bar_state_done`; `show_progress_bar`
-  accepts a "final" argument
-- Smoke test gates: console/log separation audit, corpse-function
-  audit, self-verifying discovery patterns (empty discovery is a
-  FAIL, never a silent pass)
+  run logs run inside log initialization.
+- MSG keys `bar_state_wait` / `bar_state_done`; `show_progress_bar` accepts a "final" argument.
+- Smoke test gates: console/log separation audit, corpse-function audit, self-verifying discovery patterns (empty discovery is a FAIL, never a silent pass).
 
 ### Security
-- Missing-directory gate: a configured SOURCE_DIR that does not
-  exist aborts the run BEFORE scanning — silent skipping would
-  have fabricated deletions in the delete phase
-- Empty-scan gate: a scan returning zero files aborts in both
-  variants (previous database present / first run); there is
-  deliberately no override flag — intentional emptying is a
-  configuration edit, never a flag
+
+- Missing-directory gate: a configured SOURCE_DIR that does not exist aborts the run BEFORE scanning — silent skipping would have fabricated deletions in the delete phase.
+- Empty-scan gate: a scan returning zero files aborts in both variants (previous database present / first run); there is deliberately no override flag — intentional emptying is a configuration edit, never a flag.
 
 ## [v1.2.1] - 2026-10-20
 

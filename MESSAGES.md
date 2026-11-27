@@ -48,11 +48,12 @@ by `test.sh` wherever technically checkable.
 | fail_val_cron_divisible | Constant | — | Reason: values >60 must be multiples of 60 |
 | fail_val_source_dirs | Constant | — | Reason: SOURCE_DIRS unset or empty |
 | fail_val_keep_log_runs | Constant | — | Reason: KEEP_LOG_RUNS not a positive integer |
-| fail_val_source_base | Constant | — | Reason: SOURCE_BASE empty or not absolute |
+| fail_val_source_base | Constant | — | Reason: SOURCE_BASE empty or not absolute, escape the $ in the home directory variable: \$HOME |
 | fail_config_missing | Constant | — | Leading phrase; config path printed below by caller |
 | fail_skip_missing_dir | Constant | 2× %s | Runtime-derived missing directory path |
 | fail_config_hint | Template | 1× %s | Runtime-derived .cfg.example path, printed with fail_config_missing |
 | fail_config_syntax | Template | 1× %s | bash -n parser output header; legacy name kept — documented exception to rule 1 |
+| fail_val_check_update | Constant | – | Expecting boolean `true` or `false` |
 
 ## Help text
 
@@ -84,7 +85,7 @@ by `test.sh` wherever technically checkable.
 `info_dry_run`, `info_reset_db`, `quiet_notice`
 
 ### Dependencies and session
-`fail_dep_missing`, `info_deps_ok`, `info_session_check`,
+`fail_deps_missing`, `info_deps_ok`, `info_session_check`, `info_deps_check`
 `info_session_valid`, `info_auth_required`, `warn_dry_run_auth`,
 `info_login_instruction`, `info_login_success`, `fail_login_failed`
 
@@ -105,6 +106,10 @@ by `test.sh` wherever technically checkable.
 `label_process`,
 `label_delete`,
 `label_retry`
+`fail_retry_persist`,  
+`fail_temp_create`,  
+`fail_staging_db_convert`,  
+`fail_staging_db_move`
 
 ### Upload phase
 `info_compare_upload`, `info_no_local_files`
@@ -123,7 +128,8 @@ Dynamic family: `mode_verb_${DELETE_MODE}` — a new DELETE_MODE    value REQUIR
 ### Logging
 `info_no_log_found`, `info_log_first_run`, `info_log_opening`,
 `info_log_archive_opening`, `info_log_follow_hint`,
-`warn_archive_failed`
+`warn_archive_failed`,
+`warn_log_unavailable`
 
 ### Cron management
 `cron_manager`, `cron_scheduled`, `cron_already`, `cron_removed`,
@@ -138,13 +144,15 @@ Dynamic family: `mode_verb_${DELETE_MODE}` — a new DELETE_MODE    value REQUIR
 `info_update_latest`,
 `info_update_unknown`,
 `help_release_url`  
+`fail_val_check_update`  
 Update-check messages are opt-in (CHECK_UPDATES, default "false"):
 no network activity in --version mode unless enabled.
 
 ### Print summary
 `sum_uploaded`, `sum_skipped`, `sum_errors`, `sum_warnings`,
 `sum_retried`, `sum_retry_pending`,
-`sum_completed_ok`, `sum_completed_errors`
+`sum_completed_ok`, `sum_completed_errors`,
+`warn_counter_drift`, 
 Retry rows render only when their counters are non-zero (healthy runs keep the v1.1.0 summary shape).
 
 ### Man-page style help
@@ -159,7 +167,7 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 `tmpl_usage_hint` (1), `tmpl_menu_invoke` (1),
 `tmpl_fail_invalid_value` (3),
 `tmpl_warn_update_failed` (1),
-`tmpl_update_available` (2),
+`tmpl_update_available` (2)  
    Number in parentheses = argument count; placeholder positions
    must be identical across languages.  
 
@@ -174,8 +182,6 @@ CRON_INTERVAL_MINUTES, RUNTIME_LOG, KEEP_LOG_RUNS, DELETE_MODE),
 `opt_reset_db`, `opt_schedule`, `opt_unschedule`,
 `opt_verbose`,
 `opt_version`
-
-
 
 ## Removals
 - `info_initialized` (removed v1.0.0 pre-release; consumer was dropped

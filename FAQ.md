@@ -59,7 +59,8 @@ No. The delete phase moves references, not bytes — nothing is transferred. The
 
 ### Why does the tool put orphaned files in the trash instead of deleting them?
 
-Because a brake beats no brake. `DELETE_MODE=trash` (the default) keeps every removal recoverable. Deleted-then-restored mistakes are cheap; permanently lost backups are not. Clear the Proton Drive trash periodically after verifying your backups, then switch explicitly to `DELETE_MODE=delete` if you prefer permanent removal.  
+The default `DELETE_MODE=trash` keeps every removal recoverable. Deleted-then-restored mistakes are cheap; permanently lost backups are not. Clear the Proton Drive trash periodically after verifying your backups.  
+Switch explicitly to `DELETE_MODE=delete` if you prefer automatized, permanent removal.  
 
 ### Renaming a file fills my trash — why?
 
@@ -349,6 +350,6 @@ Yes — that is the point of the MIT License: study it, change it, redistribute 
 
 ---
 
-*Last updated: 2026-11-15*
+*Last updated: 2026-11-27*
 *Author: RML Tec Dev*
 

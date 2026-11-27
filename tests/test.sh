@@ -322,6 +322,36 @@ else
                 || { print_fail "[$lang] Missing family member: mode_verb_$mode"; dyn_bad=1; }
         done
         [[ $dyn_bad -eq 0 ]] && print_pass "[$lang] Dynamic key family (mode_verb_*) complete"
+
+                # ── Dynamic families complete in THIS locale ──
+        dyn_bad=0
+        for mode in trash delete; do
+            [[ -n "${MSG[mode_verb_$mode]+x}" ]] \
+                || { print_fail "[$lang] Missing family member: mode_verb_$mode"; dyn_bad=1; }
+        done
+        [[ $dyn_bad -eq 0 ]] && print_pass "[$lang] Dynamic key family (mode_verb_*) complete"
+
+        # ── Script-referenced keys must resolve in THIS locale ──
+        # Third edge of the triangle: 8a checks .en ⊆ locale,
+        # corpse check tests locale ⊆ script usage; THIS asserts
+        # every literal MSG[key] the script references resolves
+        # in every locale. Dynamic families (${VAR} indices) are
+        # excluded by the (?=\]) lookahead — they cannot be
+        # resolved statically; their completeness is checked
+        # above. Gate integrity: zero discoveries = FAIL.
+        mapfile -t script_refs < <(grep -oP 'MSG\[\K[a-z_0-9]+(?=\])' \
+                                   "$MAIN_SCRIPT" | sort -u)
+        if [[ ${#script_refs[@]} -eq 0 ]]; then
+            print_fail "[$lang] No MSG references found in script — extraction broken?"
+        else
+            ref_bad=0
+            for key in "${script_refs[@]}"; do
+                [[ -n "${MSG[$key]+x}" ]] \
+                    || { print_fail "[$lang] Referenced but undefined: $key"; ref_bad=1; }
+            done
+            [[ $ref_bad -eq 0 ]] \
+                && print_pass "[$lang] All ${#script_refs[@]} script-referenced keys resolve"
+        fi
     done
 fi
 
@@ -349,7 +379,91 @@ done
 
 
 
-# ═══ SECTION 8c: Corpse-functions ══════
+# ═══ SECTION 8c: %s placeholder parity gate ═══════════════
+# Counts %s placeholders per MSG key in every locale file and
+# fails on: count mismatch across locales, key missing in any
+# locale, or empty discovery results. Console messages of the
+# locales are the contract; printf argument lists at the call
+# sites must match these counts (checked by simulation later).
+# Gate integrity: a crash or empty result is a FAIL, never a
+# silent skip.
+
+check_msg_placeholder_parity() {
+    local locales=(en de th)
+    local script_dir locale file key count line
+
+    # ── Reference table from English ──
+    declare -A reference=()
+    while IFS= read -r line; do
+        key="${line%%=*}"
+        key="${key#MSG\[}"
+        key="${key%\]}"
+        [[ -n "$key" ]] || continue
+        count=$(printf '%s' "${line#*=}" | grep -o '%s' | wc -l)
+        reference["$key"]="$count"
+    done < <(grep -E '^MSG\[[^]]+\]=' "$LOC_FILE")
+
+    if (( ${#reference[@]} == 0 )); then
+        echo "FAIL: no MSG keys found in proton-drive-backup.en"
+        return 1
+    fi
+
+    local failures=0
+    declare -A seen=()
+
+    for locale in de th; do
+        file="./proton-drive-backup.$locale"
+        if [[ ! -f "$file" ]]; then
+            print_fail "[$locale]: locale file missing: $file"
+            failures=$((failures + 1))
+            continue
+        fi
+
+        while IFS= read -r line; do
+            key="${line%%=*}"
+            key="${key#MSG\[}"
+            key="${key%\]}"
+            [[ -n "$key" ]] || continue
+            seen["$key"]=1
+            count=$(printf '%s' "${line#*=}" | grep -o '%s' | wc -l)
+            if [[ -z "${reference[$key]:-}" ]]; then
+                print_fail "[$locale]: key '$key' missing in English reference"
+                failures=$((failures + 1))
+            elif [[ "${reference[$key]}" != "$count" ]]; then
+                print_fail "[$locale]: key '$key' carries %s x$count, reference expects x${reference[$key]}"
+                failures=$((failures + 1))
+            fi
+        done < <(grep -E '^MSG\[[^]]+\]=' "$file")
+
+        # Reverse direction: EN keys absent from this locale
+        for key in "${!reference[@]}"; do
+            if [[ -z "${seen[$key]:-}" ]]; then
+                print_fail "[$locale]: key '$key' missing in this locale"
+                failures=$((failures + 1))
+            fi
+        done
+        seen=()
+    done
+
+    if (( failures == 0 )); then
+        print_pass "%s parity verified — ${#reference[@]} keys across ${#locales[@]} locales"
+        return 0
+    fi
+    print_fail "$failures parity violation(s) detected"
+    return 1
+}
+
+section "%s placeholder parity"
+
+if check_msg_placeholder_parity; then
+    print_pass "%s counts identical across all locales"
+else
+    print_fail "%s parity violations — details above"
+fi
+
+
+
+# ═══ SECTION 9: Corpse-functions ══════
 
 # Every defined function must be called at
 # at least one site other than its definition.
@@ -360,6 +474,9 @@ done
 # count as exactly ONE occurrence — a dead function totals <= 1.
 # Known accepted limitation: a call mentioned in a COMMENT line
 # can satisfy the count — comments are stripped nowhere here.
+
+section "Corpse-functions"
+
 mapfile -t defined_fns < <(grep -oP '^[a-z_0-9]+(?=\(\) \{)' "$MAIN_SCRIPT")
 
 if [[ ${#defined_fns[@]} -eq 0 ]]; then
@@ -378,7 +495,7 @@ fi
 
 
 
-# ═══ SECTION 9: Configuration example contract ═══════════
+# ═══ SECTION 10: Configuration example contract ═══════════
 
 section "Configuration example (.cfg.example)"
 
@@ -429,7 +546,7 @@ done < <(sed -n '/^SOURCE_DIRS=(/,/^)/p' "$CFG_EXAMPLE" \
 
 
 
-# ═══ SECTION 10: CLI options ↔ --help parity ═════════════
+# ═══ SECTION 11: CLI options ↔ --help parity ═════════════
 
 section "CLI/help parity"
 
@@ -497,7 +614,7 @@ done
 
 
 
-# ═══ SECTION 11: Script hygiene ═══════════════════════════
+# ═══ SECTION 12: Script hygiene ═══════════════════════════
 
 section "Script hygiene"
 
@@ -528,27 +645,6 @@ grep -q "date -u '+%Y%m%d" "$MAIN_SCRIPT" \
 
 
 
-# ═══ SECTION 12: Git commit message mood (uncommitted check) ═══
-
-section "Commit message"
-
-if [[ -x "$(command -v git)" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
-    # Merge commits carry git-generated subject lines outside the
-    # mood convention — the last AUTHORED commit is the review target
-    last_msg=$(git log --author-date-order -1 --no-merges --pretty=%s)
-    if [[ -z "$last_msg" ]]; then
-        print_warn "No non-merge commit found"
-    elif [[ "$last_msg" =~ ^(Added|Fixed|Updated|Removed|Changed) ]] && [[ "$last_msg" != *. ]]; then
-        print_pass "Last authored commit follows mood convention"
-    else
-        print_warn "Commit message deviates: '$last_msg'"
-    fi
-else
-    print_warn "Not a git repository — commit check skipped"
-fi
-
-
-
 # ═══ SECTION 13: Retry queue removal discipline ═══════════
 
 section "Retry queue removal discipline"
@@ -570,6 +666,25 @@ else
 fi
 
 
+
+# ═══ SECTION 14: Git commit message mood (uncommitted check) ═══
+
+section "Commit message"
+
+if [[ -x "$(command -v git)" ]] && git rev-parse --is-inside-work-tree &>/dev/null; then
+    # Merge commits carry git-generated subject lines outside the
+    # mood convention — the last AUTHORED commit is the review target
+    last_msg=$(git log --author-date-order -1 --no-merges --pretty=%s)
+    if [[ -z "$last_msg" ]]; then
+        print_warn "No non-merge commit found"
+    elif [[ "$last_msg" =~ ^(Added|Fixed|Updated|Removed|Changed) ]] && [[ "$last_msg" != *. ]]; then
+        print_pass "Last authored commit follows mood convention"
+    else
+        print_warn "Commit message deviates: '$last_msg'"
+    fi
+else
+    print_warn "Not a git repository — commit check skipped"
+fi
 
 
 

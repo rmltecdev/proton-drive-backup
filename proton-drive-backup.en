@@ -19,12 +19,12 @@ MSG[label_delete]="Deleting"
 MSG[label_files]="files"
 MSG[label_load]="Loading"
 MSG[label_process]="Processing"
-MSG[label_retry]="Retrying..."
+MSG[label_retry]="Retrying"
 MSG[label_scan]="Scanning"
 MSG[status_preparing]="Analyzing data..."
 
 # ───── Initialization and configuration ───────────────────
-PAD_CONFIG_WIDTH="26"   # Inflate padding to align with longest string; adjust to language
+PAD_CONFIG_WIDTH="29"   # Inflate padding to align with longest string; adjust to language
 MSG[info_config_header]="Backup Configuration"
 MSG[info_conflict_strategy]="Conflict strategy"
 MSG[info_delete_mode]="Delete mode"
@@ -33,7 +33,8 @@ MSG[info_reset_db]="Reset checksum database"
 MSG[quiet_notice]="Backup running in background. Follow progress with:"
 
 # ───── Dependencies and session ───────────────────────────
-MSG[fail_dep_missing]="Required dependencies not found:"
+MSG[fail_deps_missing]="Required dependencies not found:"
+MSG[info_deps_check]="Checking dependencies..."
 MSG[info_deps_ok]="All dependencies satisfied."
 MSG[info_session_check]="Checking authentication session..."
 MSG[info_session_valid]="Session is valid."
@@ -48,9 +49,9 @@ MSG[info_dry_create_folder]="Would create folder:"
 MSG[fail_remote_create]="Cannot create remote folder:"
 
 # ───── Database build and load ────────────────────────────
-MSG[info_building_db]="Building local checksum database"
+MSG[info_building_db]="Building local checksum database..."
 MSG[info_no_db_found]="No checksum database found; building new one..."
-MSG[info_lookup_build]="Building change-detection from previous database..."
+MSG[info_lookup_build]="Building change detection from previous database..."
 MSG[warn_file_unreadable]="Cannot read file:"
 MSG[warn_rebuild_db]="Rebuilding checksum database..."
 MSG[fail_skip_missing_dir]="Missing directory %s. Check configuration in:\n   %s"
@@ -59,8 +60,8 @@ MSG[fail_empty_scan_first]="Nothing to back up: No files found in source directo
 MSG[opt_checksum]="Force full checksum verification"
 
 # ───── Upload phase ───────────────────────────────────────
-MSG[info_compare_upload]="Comparing local files against the previous backup state, uploading new and changed files..."
-MSG[info_compare_upload_new]="Uploading all files (no previous backup state found)..."
+MSG[info_compare_upload]="Comparing local files against previous backup state, uploading new and changed files..."
+MSG[info_compare_upload_new]="No previous backup state found; uploading all files..."
 MSG[info_no_local_files]="No local files to process."
 
 # ───── Delete phase ───────────────────────────────────────
@@ -83,6 +84,7 @@ MSG[info_log_opening]="Opening log:"
 MSG[info_log_archive_opening]="Opening archived log from:"
 MSG[info_log_follow_hint]="Press Ctrl+C to interrupt following, Q to quit."
 MSG[warn_archive_failed]="Could not archive run logs; leaving plain files in place."
+MSG[warn_log_unavailable]="Runtime log unavailable — reconciliation skipped."
 
 # ───── Cron management ────────────────────────────────────
 MSG[cron_manager]="Cronjob Manager"
@@ -118,6 +120,7 @@ MSG[sum_completed_errors]="Backup completed with errors"
 MSG[sum_retried]="Retried successfully"
 MSG[sum_retry_pending]="Pending in retry queue"
 MSG[sum_elapsed]="Elapsed time"
+MSG[warn_counter_drift]="Mismatch between log and counter detected — see runtime.log."
 
 # ───── Man-page Style Help ────────────────────────────────
 read -r -d '' 'MSG[help_text]' <<'EOF'
@@ -154,15 +157,15 @@ USAGE
         --quiet       Run backup silently (for cron jobs).
                       Console output: errors and summary only.
         --reset-db    Reset checksum database and rebuild.
-        --schedule    Auto-schedule the cronjob
+        --schedule    Auto-schedule cronjob
                       (every %s minutes).
-        --unschedule  Remove the cronjob.
+        --unschedule  Remove cronjob.
         --verbose     Run backup with progress indicator.
         --version     Show version information.
 
 LOGGING
     Log file  %s
-    Rotation  Internal, run-based, logs archived with the next run.
+    Rotation  Internal, run-based, logs archived with next run.
               %s rotated logs kept, oldest deleted.
 
 DELETE STRATEGY
@@ -173,7 +176,7 @@ DELETE STRATEGY
 
 DISCLAIMER
     This script is provided "as is"; there is NO WARRANTY at all. Use at
-    your own risk. Licensed under the MIT License.
+    your own risk.
 
 AUTHOR
     Copyright (c) 2026 RML Tec Dev
@@ -205,34 +208,40 @@ MSG[opt_help]="Show description, usage and license"
 MSG[opt_log]="Open and follow runtime log; quit with Ctrl+C + Q"
 MSG[opt_quiet]="Run backup silently (for cron jobs)"
 MSG[opt_reset_db]="Reset MD5 checksum database and rebuild"
-MSG[opt_schedule]="Auto-schedule the cronjob"
-MSG[opt_unschedule]="Remove the cronjob"
+MSG[opt_schedule]="Auto-schedule cronjob"
+MSG[opt_unschedule]="Remove cronjob"
 MSG[opt_verbose]="Run backup with progress indicator"
 MSG[opt_version]="Show version information"
 
 # ───── Config validation ──────────────────────────────────
 MSG[fail_config_missing]="Configuration file not found:"
-MSG[fail_config_hint]="Copy the example configuration at %s and adjust it."
+MSG[fail_config_hint]="Copy example configuration at %s and adjust it."
 MSG[fail_config_syntax]="Syntax error in configuration file: %s"
-MSG[fail_val_delete]="trash or delete"
-MSG[fail_val_conflict]="replace or skip"
+MSG[fail_staging_db_convert]="Unable to build staging database."
+MSG[fail_staging_db_move]="Unable to move staging database."
+MSG[fail_retry_persist]="Unable to persist retry queue."
+MSG[fail_temp_create]="Unable to create temporary file."
+MSG[fail_val_check_update]="'true' or 'false'"
+MSG[fail_val_delete]="'trash' or 'delete'"
+MSG[fail_val_conflict]="'replace' or 'skip'"
 MSG[fail_val_cron_positive]="a positive integer"
 MSG[fail_val_cron_divisible]="1-60, or a multiple of 60"
 MSG[fail_val_source_dirs]="at least one source directory"
 MSG[fail_val_keep_log_runs]="a whole number of 1 or greater"
-MSG[fail_val_source_base]="an absolute path starting with /"
+MSG[fail_val_remote_base]="an absolute path inside /my-files, without trailing slash or control characters"
+MSG[fail_val_source_base]="\$HOME, or an absolute path starting with /"
 MSG[fail_val_retry_attempts]="1-10"
 MSG[fail_val_retry_backoff]="a positive integer"
 
 # ───── Composite templates (printf, %s placeholders) ──────
-MSG[tmpl_db_built]="Database built: %s files, %s total."
+MSG[tmpl_db_built]="Local database built: %s files, %s total."
 MSG[tmpl_prev_db_loaded]="Loaded previous database (%s entries) for change detection."
-MSG[tmpl_upload_phase]="Upload phase: %s uploaded, %s skipped, %s."
+MSG[tmpl_upload_phase]="Compare-and-upload phase complete: %s uploaded, %s skipped, %s total."
 MSG[tmpl_delete_phase]="Delete phase: %s %s."
 MSG[tmpl_lock_running]="Another instance is running (PID: %s)."
 MSG[tmpl_cron_interval]="The backup will run every %s minute(s) in quiet mode."
 MSG[tmpl_usage_hint]="Run '%s --help' for available options."
 MSG[tmpl_menu_invoke]="Invoke %s with one of these options:"
-MSG[tmpl_fail_invalid_value]="Invalid %s: '%s' (allowed: %s)."
+MSG[tmpl_fail_invalid_value]="Invalid value for %s: '%s'; expected: %s."
 MSG[tmpl_update_available]="  %s v%s → v%s; download from:\n"
 MSG[tmpl_release_url]="  %s %s\n"
