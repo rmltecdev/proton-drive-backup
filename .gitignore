@@ -28,3 +28,9 @@ coverage/
 # User files
 test-report.txt
 to-do.txt
+*Handoff*
+
+# Generated files
+proton-drive-backup-*.tar.gz
+RELEASE_NOTES_*.md
+make-release-trace.log
